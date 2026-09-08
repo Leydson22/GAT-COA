@@ -41,15 +41,23 @@ export default function App() {
 
   // 1. Auth Listener
   useEffect(() => {
-    const fetchProfile = async (uid: string) => {
-      const { data } = await supabase.from('profiles').select('role, approved').eq('id', uid).single();
+    const fetchProfile = async (uid: string, userEmail?: string) => {
+      let { data, error } = await supabase.from('profiles').select('role, approved').eq('id', uid).single();
+      if (error || !data) {
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .upsert({ id: uid, email: userEmail || '', role: 'operator', approved: false })
+          .select('role, approved')
+          .single();
+        data = newProfile;
+      }
       setUserProfile(data);
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user.id, session.user.email);
         syncData();
       }
       setIsAuthLoading(false);
@@ -58,7 +66,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user.id, session.user.email);
         syncData();
       } else {
         setUserProfile(null);
@@ -184,7 +192,7 @@ export default function App() {
     );
   }
 
-  if (session && userProfile && userProfile.approved === false) {
+  if (session && (!userProfile || userProfile.approved !== true)) {
     return (
       <div className="min-h-screen bg-sky-950 flex flex-col items-center justify-center text-white p-6 text-center space-y-4">
         <div className="w-16 h-16 bg-amber-400 text-sky-950 rounded-2xl flex items-center justify-center mx-auto shadow-xl">
@@ -192,7 +200,7 @@ export default function App() {
         </div>
         <h2 className="text-xl font-black uppercase tracking-tight">Aprovação Pendente</h2>
         <p className="text-xs text-sky-200 font-medium max-w-sm leading-relaxed">
-          Sua conta foi criada com sucesso, mas aguarda a aprovação de um Administrador para liberar o seu acesso ao sistema.
+          Sua conta aguarda a aprovação de um Administrador para liberar o seu acesso ao sistema.
         </p>
         <button
           onClick={async () => {
