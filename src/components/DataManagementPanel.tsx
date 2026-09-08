@@ -3,7 +3,7 @@ import {
   Database, Download, Upload, Trash2, AlertTriangle, ShieldCheck,
   FileJson, X, ShieldAlert, CheckCircle2, RefreshCw, Clock,
   History, Settings2, ShieldQuestion, Trash, CloudDownload, CloudUpload,
-  FileText, Share2, Info, PlusCircle, Edit2
+  FileText, Share2, Info, PlusCircle, Edit2, ChevronRight
 } from 'lucide-react';
 import {
   generateBackup, restoreBackup, clearAllData, clearLogs,
@@ -11,6 +11,7 @@ import {
   saveInternalSnapshot, restoreFromSnapshot, deleteSnapshot,
   SnapshotMetadata, BackupConfig
 } from '../services/dataManagementService';
+import { syncAllLocalData, getPendingSyncCount } from '../services/syncService';
 
 interface DataManagementPanelProps {
   onDataRestored: () => void;
@@ -21,6 +22,7 @@ type MaintenanceAction = 'CLEAR_MOV' | 'CLEAR_LOGS' | 'FACTORY_RESET' | 'RESTORE
 export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onDataRestored }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pendingSync, setPendingSync] = useState(0);
   const [stats, setStats] = useState({ totalMov: 0, totalLogs: 0, totalModels: 0 });
   const [snapshots, setSnapshots] = useState<SnapshotMetadata[]>([]);
 
@@ -40,12 +42,14 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
 
   const loadInitialData = async () => {
     setStats(getDatabaseStats());
+    setPendingSync(getPendingSyncCount());
     const list = await listInternalSnapshots();
     setSnapshots(list);
   };
 
   const refreshStats = async () => {
     setStats(getDatabaseStats());
+    setPendingSync(getPendingSyncCount());
     const list = await listInternalSnapshots();
     setSnapshots(list);
     onDataRestored();
@@ -58,6 +62,14 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
   const handleBackup = async () => {
     setIsProcessing(true);
     await generateBackup();
+    setIsProcessing(false);
+  };
+
+  const handleSyncCloud = async () => {
+    setIsProcessing(true);
+    const result = await syncAllLocalData();
+    alert(result.message);
+    await refreshStats();
     setIsProcessing(false);
   };
 
@@ -186,54 +198,82 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
       )}
 
       {/* 1. BACKUP EXTERNO (NUVEM/DRIVE) */}
-      <div className="bg-white rounded-3xl border-2 border-slate-100 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-3xl border-2 border-slate-100 overflow-hidden shadow-sm text-nowrap">
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-sky-600 text-white rounded-xl">
               <CloudUpload className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Arquivos Externos (Drive / Cloud)</h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase">Exportação e importação manual</p>
+              <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Sincronização em Nuvem (Supabase)</h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase">Enviar dados locais para o servidor</p>
             </div>
           </div>
+          {pendingSync > 0 && (
+            <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-3 py-1 rounded-full animate-pulse border border-amber-200">
+              {pendingSync} PENDENTES
+            </span>
+          )}
         </div>
 
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <button
-              onClick={handleBackup}
+              onClick={handleSyncCloud}
               disabled={isProcessing}
-              className="flex items-center justify-between p-5 bg-white border-2 border-sky-100 hover:border-sky-600 rounded-[24px] transition-all active:scale-95 group shadow-xs"
+              className="flex items-center justify-between p-5 bg-sky-50 border-2 border-sky-200 hover:border-sky-600 rounded-[24px] transition-all active:scale-95 group shadow-xs"
             >
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-sky-600 text-white rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
-                  <CloudUpload className="w-6 h-6" />
+                  <RefreshCw className={`w-6 h-6 ${isProcessing ? 'animate-spin' : ''}`} />
                 </div>
                 <div className="text-left">
-                  <span className="block text-sm font-black text-slate-800 uppercase">Exportar para Nuvem</span>
-                  <span className="block text-[10px] text-slate-500 font-medium">Google Drive, WhatsApp ou Email</span>
+                  <span className="block text-sm font-black text-sky-950 uppercase">Sincronizar Tudo</span>
+                  <span className="block text-[10px] text-sky-700 font-medium">Enviar base local para o Supabase</span>
                 </div>
               </div>
-              <Share2 className="w-5 h-5 text-sky-300 group-hover:text-sky-600" />
+              <ChevronRight className="w-5 h-5 text-sky-400" />
+            </button>
+
+            <button
+              onClick={handleBackup}
+              disabled={isProcessing}
+              className="flex items-center justify-between p-5 bg-white border-2 border-slate-100 hover:border-slate-400 rounded-[24px] transition-all active:scale-95 group shadow-xs"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-slate-800 text-white rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
+                  <FileJson className="w-6 h-6" />
+                </div>
+                <div className="text-left">
+                  <span className="block text-sm font-black text-slate-800 uppercase">Exportar JSON</span>
+                  <span className="block text-[10px] text-slate-500 font-medium">Backup manual (Drive/WhatsApp)</span>
+                </div>
+              </div>
+              <Share2 className="w-5 h-5 text-slate-300" />
             </button>
 
             <button
               onClick={handleRestoreClick}
               disabled={isProcessing}
-              className="flex items-center justify-between p-5 bg-white border-2 border-amber-100 hover:border-amber-600 rounded-[24px] transition-all active:scale-95 group shadow-xs"
+              className="flex items-center justify-between p-5 bg-white border-2 border-slate-100 hover:border-sky-400 rounded-[24px] transition-all active:scale-95 group shadow-xs"
             >
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
-                  <CloudDownload className="w-6 h-6" />
+                <div className="p-3 bg-sky-700 text-white rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
+                  <Upload className="w-6 h-6" />
                 </div>
                 <div className="text-left">
-                  <span className="block text-sm font-black text-slate-800 uppercase">Importar do Celular</span>
-                  <span className="block text-[10px] text-slate-500 font-medium">Restaurar arquivo .json externo</span>
+                  <span className="block text-sm font-black text-slate-800 uppercase">Importar JSON</span>
+                  <span className="block text-[10px] text-slate-500 font-medium">Restaurar arquivo de backup (.json)</span>
                 </div>
               </div>
-              <Upload className="w-5 h-5 text-amber-300 group-hover:text-amber-600" />
+              <CloudUpload className="w-5 h-5 text-slate-300" />
             </button>
-            <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".json"
+              className="hidden"
+            />
         </div>
       </div>
 
