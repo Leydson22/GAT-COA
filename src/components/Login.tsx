@@ -7,20 +7,54 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    if (isRegistering) {
+      // Pré-verificação na tabela profiles para negar criação se já existir
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email.trim().toLowerCase())
+        .maybeSingle();
 
-    if (error) {
-      setError(error.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : error.message);
-      setLoading(false);
+      if (existingUser) {
+        setError('Este e-mail já está cadastrado no sistema.');
+        setLoading(false);
+        return;
+      }
+
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) {
+        let msg = error.message;
+        if (msg.includes('User already registered') || msg.includes('already registered')) {
+          msg = 'Este e-mail já está cadastrado no sistema.';
+        } else if (msg.includes('Password should be at least')) {
+          msg = 'A senha deve ter pelo menos 6 caracteres.';
+        }
+        setError(msg);
+        setLoading(false);
+      } else {
+        alert('Conta criada com sucesso! Você já pode entrar.');
+        setIsRegistering(false);
+        setLoading(false);
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) {
+        setError(error.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : error.message);
+        setLoading(false);
+      }
     }
   };
 
@@ -31,7 +65,7 @@ export const Login: React.FC = () => {
       <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-blue-900 rounded-full blur-3xl opacity-30"></div>
 
       <div className="max-w-md w-full space-y-8 z-10">
-        <div className="text-center">
+        <div className="text-center animate-in slide-in-from-top-4 duration-500">
           <div className="w-20 h-20 bg-amber-400 text-sky-950 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl rotate-3">
             <Plane className="w-12 h-12" />
           </div>
@@ -43,9 +77,11 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-white p-8 rounded-[40px] shadow-2xl space-y-5 border border-white/20">
+        <form onSubmit={handleAuth} className="bg-white p-8 rounded-[40px] shadow-2xl space-y-5 border border-white/20 animate-in fade-in zoom-in-95 duration-300">
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">Acesso Restrito</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">
+              {isRegistering ? 'Nova Conta' : 'Acesso Restrito'}
+            </label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -80,21 +116,33 @@ export const Login: React.FC = () => {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 bg-sky-900 text-white font-black rounded-2xl shadow-xl shadow-sky-900/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-50"
-          >
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              'Entrar no Sistema'
-            )}
-          </button>
+          <div className="space-y-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full py-4 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-50 ${isRegistering ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-sky-900 shadow-sky-900/20'}`}
+            >
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : isRegistering ? (
+                'Criar minha Conta'
+              ) : (
+                'Entrar no Sistema'
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsRegistering(!isRegistering)}
+              className="w-full py-2 text-[10px] font-black text-sky-700 uppercase tracking-widest hover:text-sky-900 transition-colors"
+            >
+              {isRegistering ? 'Já tenho uma conta? Entrar' : 'Não tem acesso? Cadastre-se'}
+            </button>
+          </div>
         </form>
 
         <p className="text-center text-sky-400/60 text-[10px] font-bold uppercase tracking-widest">
-          v1.5.0 • © 2026 COA Operações
+          v1.6.0 • © 2026 COA Operações
         </p>
       </div>
     </div>

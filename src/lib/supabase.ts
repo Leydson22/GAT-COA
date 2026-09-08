@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
 
 // Essas variáveis devem ser configuradas no seu painel do Supabase

@@ -51,10 +51,52 @@ export const syncData = async () => {
   }
 };
 
+export const syncAllLocalData = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { success: false, message: 'Usuário não autenticado' };
+
+  try {
+    const localData: MovimentacaoAeronave[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVIMENTACOES) || '[]');
+    if (localData.length === 0) return { success: true, message: 'Nada para sincronizar' };
+
+    for (const record of localData) {
+      await supabase
+        .from('movimentacoes')
+        .upsert({
+          id_registro: record.id_registro,
+          user_id: session.user.id,
+          matricula: record.matricula,
+          id_companhia: String(record.id_companhia),
+          nome_companhia: record.nome_companhia,
+          desembarque_hibrido: record.desembarque_hibrido,
+          posicao_patio: record.posicao_patio,
+          horario_cadastro: record.horario_cadastro,
+          data_cadastro: record.data_cadastro,
+          tipo_aeronave: record.tipo_aeronave,
+          status_edicao: record.status_edicao,
+          observacoes: record.observacoes
+        });
+    }
+
+    // Limpar fila de pendentes pois tudo foi enviado
+    localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify([]));
+    return { success: true, message: 'Todos os dados locais foram enviados para a nuvem' };
+  } catch (err) {
+    return { success: false, message: 'Erro de conexão ao sincronizar tudo' };
+  }
+};
+
 export const addToSyncQueue = (id: string) => {
   const pending: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PENDING_SYNC) || '[]');
   if (!pending.includes(id)) {
     pending.push(id);
     localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify(pending));
   }
+};
+
+export const getPendingSyncCount = (): number => {
+  try {
+    const pending: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PENDING_SYNC) || '[]');
+    return pending.length;
+  } catch (e) { return 0; }
 };
