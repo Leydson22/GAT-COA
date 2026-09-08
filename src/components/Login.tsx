@@ -5,6 +5,7 @@ import { Plane, Lock, Mail, Loader2, AlertCircle } from 'lucide-react';
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [honeypot, setHoneypot] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -15,7 +16,29 @@ export const Login: React.FC = () => {
     setError(null);
 
     if (isRegistering) {
-      // Pré-verificação na tabela profiles para negar criação se já existir
+      // 1. Honeypot check: If bot filled hidden field, reject immediately
+      if (honeypot.trim() !== '') {
+        setError('Acesso negado.');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Rate Limiting Check: Max 3 registration attempts per 60 seconds per device
+      const now = Date.now();
+      const attemptsKey = 'cgb_reg_attempts';
+      try {
+        const attempts: number[] = JSON.parse(localStorage.getItem(attemptsKey) || '[]');
+        const recentAttempts = attempts.filter((timestamp: number) => now - timestamp < 60000);
+        if (recentAttempts.length >= 3) {
+          setError('Muitas tentativas de cadastro recentes. Aguarde 1 minuto antes de tentar novamente.');
+          setLoading(false);
+          return;
+        }
+        recentAttempts.push(now);
+        localStorage.setItem(attemptsKey, JSON.stringify(recentAttempts));
+      } catch (err) {}
+
+      // 3. Pré-verificação na tabela profiles para negar criação se já existir
       const { data: existingUser } = await supabase
         .from('profiles')
         .select('email')
@@ -42,7 +65,7 @@ export const Login: React.FC = () => {
         setError(msg);
         setLoading(false);
       } else {
-        alert('Conta criada com sucesso! Você já pode entrar.');
+        alert('Conta criada com sucesso! Aguarde a aprovação do Administrador.');
         setIsRegistering(false);
         setLoading(false);
       }
@@ -78,6 +101,18 @@ export const Login: React.FC = () => {
         </div>
 
         <form onSubmit={handleAuth} className="bg-white p-8 rounded-[40px] shadow-2xl space-y-5 border border-white/20 animate-in fade-in zoom-in-95 duration-300">
+          {/* Honeypot Field (Hidden from humans, bots will fill it out) */}
+          <div style={{ display: 'none' }} aria-hidden="true">
+            <input
+              type="text"
+              name="hp_website_verification"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+            />
+          </div>
+
           <div className="space-y-1">
             <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">
               {isRegistering ? 'Nova Conta' : 'Acesso Restrito'}
