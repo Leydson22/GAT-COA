@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FlightRecord } from '../types';
-import { Plane, Search, Edit2, RefreshCw, Calendar, Clock, Filter, PlusCircle, CheckCircle2, X, FileText } from 'lucide-react';
+import { Plane, Search, Edit2, RefreshCw, Calendar, Clock, Filter, PlusCircle, CheckCircle2, X, FileText, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface RecentLandingsScreenProps {
   movimentacoes: FlightRecord[];
@@ -33,23 +33,33 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterHibrido, setFilterHibrido] = useState<'TODOS' | 'Sim' | 'Não'>('TODOS');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc'); // Default: newest first
 
-  // Filtered landings by date, search term, and hybrid status
-  const filteredLandings = movimentacoes.filter((rec) => {
-    if (selectedDate && rec.data_cadastro !== selectedDate) {
-      return false;
-    }
-    if (filterHibrido !== 'TODOS' && rec.desembarque_hibrido !== filterHibrido) {
-      return false;
-    }
-    if (searchTerm.trim()) {
-      const term = searchTerm.toUpperCase().trim();
-      const matchMatricula = rec.matricula.toUpperCase().includes(term);
-      const matchCompany = rec.nome_companhia.toUpperCase().includes(term);
-      return matchMatricula || matchCompany;
-    }
-    return true;
-  });
+  // Filtered and sorted landings by date, search term, hybrid status, and sort order
+  const filteredLandings = useMemo(() => {
+    const list = movimentacoes.filter((rec) => {
+      if (selectedDate && rec.data_cadastro !== selectedDate) {
+        return false;
+      }
+      if (filterHibrido !== 'TODOS' && rec.desembarque_hibrido !== filterHibrido) {
+        return false;
+      }
+      if (searchTerm.trim()) {
+        const term = searchTerm.toUpperCase().trim();
+        const matchMatricula = rec.matricula.toUpperCase().includes(term);
+        const matchCompany = rec.nome_companhia.toUpperCase().includes(term);
+        return matchMatricula || matchCompany;
+      }
+      return true;
+    });
+
+    return [...list].sort((a, b) => {
+      const dateTimeA = `${a.data_cadastro || ''} ${a.horario_cadastro || ''}`;
+      const dateTimeB = `${b.data_cadastro || ''} ${b.horario_cadastro || ''}`;
+      const comp = dateTimeA.localeCompare(dateTimeB);
+      return sortOrder === 'desc' ? -comp : comp;
+    });
+  }, [movimentacoes, selectedDate, filterHibrido, searchTerm, sortOrder]);
 
   const formatDateBR = (dateStr: string) => {
     if (!dateStr) return '';
@@ -102,6 +112,17 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
                 Todas as Datas
               </button>
             )}
+
+            {/* Sort Toggle Button (Newest/Oldest with Up/Down arrows) */}
+            <button
+              type="button"
+              onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 border border-sky-200 rounded-xl text-xs font-black text-sky-950 hover:bg-sky-100 transition-all cursor-pointer shadow-2xs"
+              title={sortOrder === 'desc' ? 'Exibindo mais novos primeiro (Clique para inverter)' : 'Exibindo mais antigos primeiro (Clique para inverter)'}
+            >
+              {sortOrder === 'desc' ? <ArrowDown className="w-3.5 h-3.5 text-sky-800" /> : <ArrowUp className="w-3.5 h-3.5 text-sky-800" />}
+              <span>{sortOrder === 'desc' ? 'Mais Novos' : 'Mais Antigos'}</span>
+            </button>
           </div>
 
           {/* Landing Count Badge */}
@@ -117,7 +138,7 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
           {onOpenExport && (
             <button
               onClick={() => onOpenExport(filteredLandings, { dataInicio: selectedDate, dataFim: selectedDate }, 'OPERATIONAL')}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-black rounded-xl transition-all shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-black rounded-xl transition-all shadow-xs cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>GERAR PDF</span>
