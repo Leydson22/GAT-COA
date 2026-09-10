@@ -10,6 +10,8 @@ export interface MovimentacaoAeronave {
   tipo_aeronave?: string;
   status_edicao?: string;
   observacoes?: string;
+  user_id?: string;
+  user_email?: string;
 }
 
 export const POSICOES_PATIO_CGB = [
