@@ -122,10 +122,25 @@ export const syncAllLocalData = async (onProgress?: (progress: number, current: 
 export const pullDataFromCloud = async (onProgress?: (progress: number, current: number, total: number) => void) => {
   if (!navigator.onLine) return { success: false, message: 'Dispositivo offline. Conecte-se à internet para baixar dados.' };
 
+  const cachedSession = localStorage.getItem('cgb_cached_session');
+  let session = cachedSession ? JSON.parse(cachedSession) : null;
+  if (!session || !session.user) {
+    const { data: { session: remoteSession } } = await supabase.auth.getSession();
+    session = remoteSession;
+  }
+  if (!session || !session.user) return { success: false, message: 'Usuário não autenticado' };
+
+  const cachedProfile = localStorage.getItem('cgb_cached_profile');
+  const profile = cachedProfile ? JSON.parse(cachedProfile) : { role: 'operator' };
+  const isAdmin = profile.role === 'admin';
+
   try {
-    const { data: remoteData, error } = await supabase
-      .from('movimentacoes')
-      .select('*');
+    let query = supabase.from('movimentacoes').select('*');
+    if (!isAdmin) {
+      query = query.eq('user_id', session.user.id);
+    }
+
+    const { data: remoteData, error } = await query;
 
     if (error) {
       return { success: false, message: 'Erro ao buscar dados do Supabase: ' + error.message };

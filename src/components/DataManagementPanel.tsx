@@ -3,7 +3,7 @@ import {
   Database, Download, Upload, Trash2, AlertTriangle, ShieldCheck,
   FileJson, X, ShieldAlert, CheckCircle2, RefreshCw, Clock,
   History, Settings2, ShieldQuestion, Trash, CloudDownload, CloudUpload,
-  FileText, Share2, Info, PlusCircle, Edit2, ChevronRight, Wifi, WifiOff
+  FileText, Share2, Info, PlusCircle, Edit2, ChevronRight, Wifi, WifiOff, Shield
 } from 'lucide-react';
 import {
   generateBackup, restoreBackup, clearAllData, clearLogs,
@@ -28,6 +28,10 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [syncProgress, setSyncProgress] = useState<number>(0);
   const [syncStatusText, setSyncStatusText] = useState<string>('');
+
+  const cachedProfile = localStorage.getItem('cgb_cached_profile');
+  const userProfile = cachedProfile ? JSON.parse(cachedProfile) : { role: 'operator' };
+  const isAdmin = userProfile.role === 'admin';
 
   const [config, setConfig] = useState<BackupConfig>(() => {
     const saved = localStorage.getItem('cgb_backup_config');
@@ -93,7 +97,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
 
     setIsProcessing(true);
     setSyncProgress(0);
-    setSyncStatusText('Enviando dados locais para o Supabase...');
+    setSyncStatusText(isAdmin ? 'Enviando seus dados para o Supabase...' : 'Enviando seus registros para a nuvem...');
 
     const result = await syncAllLocalData((progress, current, total) => {
       setSyncProgress(progress);
@@ -120,7 +124,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
 
     setIsProcessing(true);
     setSyncProgress(0);
-    setSyncStatusText('Baixando e comparando dados da nuvem...');
+    setSyncStatusText(isAdmin ? 'Baixando todos os dados da nuvem...' : 'Baixando seus registros da nuvem...');
 
     const result = await pullDataFromCloud((progress, current, total) => {
       setSyncProgress(progress);
@@ -270,7 +274,9 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
             </div>
             <div>
               <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Sincronização em Nuvem (Supabase)</h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase">Enviar e baixar dados do servidor</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase">
+                {isAdmin ? 'Gerenciamento global de dados na nuvem' : 'Upload e Download dos seus dados pessoais'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -330,7 +336,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
                   ? 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'
                   : 'bg-sky-50 border-sky-200 hover:border-sky-600 cursor-pointer active:scale-95'
               }`}
-              title={!isOnline ? 'Disponível apenas quando o dispositivo estiver online' : 'Enviar base local para o Supabase'}
+              title={!isOnline ? 'Disponível apenas quando o dispositivo estiver online' : 'Enviar seus dados para o Supabase'}
             >
               <div className="flex items-center gap-4">
                 <div className={`p-3 rounded-2xl shadow-lg transition-transform ${!isOnline ? 'bg-slate-400 text-white' : 'bg-sky-600 text-white group-hover:scale-110'}`}>
@@ -341,7 +347,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
                     {!isOnline ? 'Enviar (Offline)' : 'Sincronizar (Upload)'}
                   </span>
                   <span className="block text-[10px] text-slate-500 font-medium">
-                    {!isOnline ? 'Conecte-se à internet para habilitar' : 'Enviar dados locais para a nuvem'}
+                    {!isOnline ? 'Conecte-se à internet para habilitar' : isAdmin ? 'Enviar todos os dados locais' : 'Enviar seus dados pessoais'}
                   </span>
                 </div>
               </div>
@@ -368,7 +374,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
                     {!isOnline ? 'Baixar (Offline)' : 'Baixar da Nuvem'}
                   </span>
                   <span className="block text-[10px] text-slate-500 font-medium">
-                    {!isOnline ? 'Conecte-se à internet para habilitar' : 'Baixar e comparar com o celular'}
+                    {!isOnline ? 'Conecte-se à internet para habilitar' : isAdmin ? 'Baixar base global da nuvem' : 'Baixar seus dados da nuvem'}
                   </span>
                 </div>
               </div>
@@ -474,52 +480,62 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
         </div>
       </div>
 
-      {/* 3. LIMPEZA SELETIVA */}
-      <div className="bg-white rounded-3xl border-2 border-slate-100 overflow-hidden shadow-sm">
-        <div className="bg-rose-50/50 px-6 py-4 border-b border-rose-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-rose-600 text-white rounded-xl">
-              <Trash2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight text-rose-900">Limpeza e Manutenção</h3>
-              <p className="text-[10px] text-rose-600 font-bold uppercase">Remoção definitiva de registros</p>
+      {/* 3. LIMPEZA SELETIVA (Restricted to Admin Only) */}
+      {isAdmin ? (
+        <div className="bg-white rounded-3xl border-2 border-slate-100 overflow-hidden shadow-sm">
+          <div className="bg-rose-50/50 px-6 py-4 border-b border-rose-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-rose-600 text-white rounded-xl">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight text-rose-900">Limpeza e Manutenção</h3>
+                <p className="text-[10px] text-rose-600 font-bold uppercase">Remoção definitiva de registros (Apenas Administradores)</p>
+              </div>
             </div>
           </div>
+
+          <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+             <button
+                onClick={() => setPendingAction('CLEAR_MOV')}
+                className="flex items-center gap-3 p-4 bg-white border-2 border-slate-100 hover:border-rose-400 rounded-2xl transition-all active:scale-95 group shadow-xs cursor-pointer"
+              >
+                <div className="p-2 bg-rose-50 text-rose-500 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-colors"><Database className="w-5 h-5" /></div>
+                <div className="text-left">
+                  <span className="block text-xs font-black text-slate-700 uppercase">Limpar Pousos</span>
+                  <span className="block text-[9px] text-slate-400 font-bold uppercase">{stats.totalMov} Itens</span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setPendingAction('CLEAR_LOGS')}
+                className="flex items-center gap-3 p-4 bg-white border-2 border-slate-100 hover:border-rose-400 rounded-2xl transition-all active:scale-95 group shadow-xs cursor-pointer"
+              >
+                <div className="p-2 bg-rose-50 text-rose-500 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-colors"><ShieldAlert className="w-5 h-5" /></div>
+                <div className="text-left">
+                  <span className="block text-xs font-black text-slate-700 uppercase">Limpar Logs</span>
+                  <span className="block text-[9px] text-slate-400 font-bold uppercase">{stats.totalLogs} Itens</span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setPendingAction('FACTORY_RESET')}
+                className="flex items-center justify-center gap-3 p-4 bg-rose-600 text-white rounded-2xl transition-all hover:bg-rose-700 shadow-lg active:scale-95 font-black text-xs uppercase tracking-widest cursor-pointer"
+              >
+                <RefreshCw className="w-5 h-5" />
+                Reset Total
+              </button>
+          </div>
         </div>
-
-        <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-           <button
-              onClick={() => setPendingAction('CLEAR_MOV')}
-              className="flex items-center gap-3 p-4 bg-white border-2 border-slate-100 hover:border-rose-400 rounded-2xl transition-all active:scale-95 group shadow-xs cursor-pointer"
-            >
-              <div className="p-2 bg-rose-50 text-rose-500 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-colors"><Database className="w-5 h-5" /></div>
-              <div className="text-left">
-                <span className="block text-xs font-black text-slate-700 uppercase">Limpar Pousos</span>
-                <span className="block text-[9px] text-slate-400 font-bold uppercase">{stats.totalMov} Itens</span>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setPendingAction('CLEAR_LOGS')}
-              className="flex items-center gap-3 p-4 bg-white border-2 border-slate-100 hover:border-rose-400 rounded-2xl transition-all active:scale-95 group shadow-xs cursor-pointer"
-            >
-              <div className="p-2 bg-rose-50 text-rose-500 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-colors"><ShieldAlert className="w-5 h-5" /></div>
-              <div className="text-left">
-                <span className="block text-xs font-black text-slate-700 uppercase">Limpar Logs</span>
-                <span className="block text-[9px] text-slate-400 font-bold uppercase">{stats.totalLogs} Itens</span>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setPendingAction('FACTORY_RESET')}
-              className="flex items-center justify-center gap-3 p-4 bg-rose-600 text-white rounded-2xl transition-all hover:bg-rose-700 shadow-lg active:scale-95 font-black text-xs uppercase tracking-widest cursor-pointer"
-            >
-              <RefreshCw className="w-5 h-5" />
-              Reset Total
-            </button>
+      ) : (
+        <div className="bg-amber-50 border-2 border-amber-200 p-5 rounded-3xl flex items-center gap-3.5 shadow-xs">
+          <div className="p-2 bg-amber-400 text-amber-950 rounded-xl shrink-0"><Shield className="w-5 h-5" /></div>
+          <div>
+            <h4 className="text-xs font-black text-amber-900 uppercase">Área Restrita a Administradores</h4>
+            <p className="text-[11px] text-amber-800 font-medium">As opções de limpeza definitiva e manutenção global são exclusivas para administradores do sistema.</p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
