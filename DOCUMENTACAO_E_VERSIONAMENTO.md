@@ -38,32 +38,32 @@ O sistema opera com múltiplas camadas de dados para garantir resiliência, segu
 ## 4. Histórico de Versões e Versionamento
 
 ### Versão 1.8.0 — (08/09/2026)
-- **Baixar da Nuvem (Cloud Pull):** Adicionada funcionalidade de download e sincronização reversa no painel de Segurança para buscar dados atualizados diretamente do Supabase e compará-los/unificá-los com o dispositivo local.
-- **Barra de Progresso Circular:** Indicador visual em formato de círculo com porcentagem centralizada para operações de Upload e Download com a nuvem.
-- **Ordenação Padrão Inteligente (Mais Novos para Mais Antigos):** Todas as listagens, tabelas e telas de pousos passam a exibir os registros do mais recente para o mais antigo por padrão, facilitando a navegação rápida.
-- **Alternância de Direção de Ordenação (Setas Up/Down):** Incluído botão interativo com setas de direção para alternar rapidamente entre ordenação decrescente (mais novos) e crescente (mais antigos).
-- **Consolidação de Correções Anteriores:** Correção no filtro de relatórios (`ExportModal`), no container de PDF (`#report-container`), sessão persistente offline e botão de sincronização restrito a online.
+- **Sincronização Cloud Restrita por Perfil (Operator vs Admin):** Usuários comuns (operadores) agora realizam upload e download restritos exclusivamente aos seus próprios registros (`user_id`), enquanto administradores operam sobre a base global.
+- **Proteção de Limpeza Definitiva:** Ações destrutivas e de manutenção global (Limpeza de Pousos, Limpeza de Logs e Reset Total) foram restritas exclusivamente a Administradores.
+- **Baixar da Nuvem & Progresso Circular:** Sincronização reversa do Supabase para o dispositivo com barra de progresso em formato de círculo e valor centralizado.
+- **Ordenação Padrão por Recência & Toggle Up/Down ("Recentes" / "Antigos"):** Listagens organizadas por padrão do mais recente para o mais antigo, com botão de alternância intuitivo.
+- **Correções de Relatórios & PDF:** Correção no escopo de dados do `ExportModal` e no wrapper `#report-container` para exportação de PDFs.
 
 ### Versão 1.7.3 — (08/09/2026)
-- **Correção no Filtro de Relatórios (ExportModal):** Ajustado o escopo de dados enviado ao modal de relatórios para utilizar a base completa autorizada (`movimentacoesPermitidas`), solucionando documentos em branco.
+- **Correção no Filtro de Relatórios (ExportModal):** Base completa autorizada repassada ao modal para evitar relatórios em branco.
 
 ### Versão 1.7.2 — (08/09/2026)
-- **Correção no Container de Relatórios PDF:** Adicionado `id="report-container"` no DOM, solucionando *"Container do relatório não encontrado"*.
+- **Correção no Container de Relatórios PDF:** Adicionado `id="report-container"` no DOM.
 
 ### Versão 1.7.1 — (08/09/2026)
 - **Sessão Persistente Offline:** Acesso contínuo offline sem nova exigência de login/senha após o primeiro acesso.
 
 ### Versão 1.7.0 — (08/09/2026)
-- **Modo Offline-First com Sincronização Inteligente:** Sincronização automática ao restabelecer conexão e indicador sutil no ícone do cabeçalho.
+- **Modo Offline-First com Sincronização Inteligente:** Sincronização automática e indicador sutil de conexão no cabeçalho.
 
 ### Versão 1.6.0 — (08/09/2026)
-- **Fluxo de Aprovação de Novos Usuários & RBAC:** Aprovação prévia por administrador e restrição de acesso por perfil.
+- **Fluxo de Aprovação de Novos Usuários & RBAC:** Aprovação prévia por administrador e restrição por perfil.
 
 ### Versão 1.5.0 — (13/08/2026)
 - **Integração Supabase (Cloud) & Autenticação:** Início da migração para arquitetura Cloud Sync.
 
 ### Versão 1.3.1 — (09/08/2026)
-- **Nova Identidade Visual & Otimização de PDF:** Sistema renomeado para "Gestão e Acompanhamento de Pátio - COA" com compressão otimizada.
+- **Nova Identidade Visual & Otimização de PDF:** Sistema renomeado para "Gestão e Acompanhamento de Pátio - COA".
 
 ### Versão 1.0.0 — (22/07/2026)
 - **Lançamento Inicial:** Dashboards executivos, gráficos Recharts e tabela analítica.
