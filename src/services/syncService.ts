@@ -54,9 +54,18 @@ export const syncData = async () => {
 };
 
 export const syncAllLocalData = async (onProgress?: (progress: number, current: number, total: number) => void) => {
-  if (!navigator.onLine) return { success: false, message: 'Dispositivo offline' };
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return { success: false, message: 'Usuário não autenticado' };
+  if (!navigator.onLine) return { success: false, message: 'Dispositivo offline. Conecte-se à internet para sincronizar.' };
+
+  const cachedSession = localStorage.getItem('cgb_cached_session');
+  let session = cachedSession ? JSON.parse(cachedSession) : null;
+  if (!session || !session.user) {
+    const { data: { session: remoteSession } } = await supabase.auth.getSession();
+    session = remoteSession;
+  }
+  if (!session || !session.user) return { success: false, message: 'Usuário não autenticado' };
+
+  const activeUserId = session.user.id;
+  const activeUserEmail = session.user.email;
 
   try {
     const localData: MovimentacaoAeronave[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVIMENTACOES) || '[]');
@@ -64,14 +73,18 @@ export const syncAllLocalData = async (onProgress?: (progress: number, current: 
 
     const total = localData.length;
     let count = 0;
+    let failedCount = 0;
 
     for (const record of localData) {
-      await supabase
+      const recordUserId = record.user_id || activeUserId;
+      const recordUserEmail = record.user_email || activeUserEmail;
+
+      const { error } = await supabase
         .from('movimentacoes')
         .upsert({
           id_registro: record.id_registro,
-          user_id: record.user_id || session.user.id,
-          user_email: record.user_email || session.user.email,
+          user_id: recordUserId,
+          user_email: recordUserEmail,
           matricula: record.matricula,
           id_companhia: String(record.id_companhia),
           nome_companhia: record.nome_companhia,
@@ -83,17 +96,26 @@ export const syncAllLocalData = async (onProgress?: (progress: number, current: 
           status_edicao: record.status_edicao,
           observacoes: record.observacoes
         });
-      count++;
+
+      if (error) {
+        failedCount++;
+      } else {
+        count++;
+      }
+
       if (onProgress) {
         onProgress(Math.round((count / total) * 100), count, total);
       }
     }
 
-    // Limpar fila de pendentes pois tudo foi enviado
-    localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify([]));
-    return { success: true, message: 'Todos os dados locais foram enviados para a nuvem' };
+    if (failedCount === 0) {
+      localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify([]));
+      return { success: true, message: `Sincronização concluída com sucesso! ${count} de ${total} registros enviados e confirmados na nuvem com identificação de usuário (${activeUserEmail}).` };
+    } else {
+      return { success: false, message: `Sincronização parcial: ${count} enviados, ${failedCount} falharam. Verifique a conexão com o Supabase.` };
+    }
   } catch (err) {
-    return { success: false, message: 'Erro de conexão ao sincronizar tudo' };
+    return { success: false, message: 'Erro de conexão ao sincronizar com o Supabase' };
   }
 };
 

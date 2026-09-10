@@ -281,7 +281,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 selection:bg-sky-200 overflow-x-hidden">
-      <div className="absolute top-0 left-0 w-full opacity-0 pointer-events-none print:opacity-100 print:relative printable-content">
+      <div id="report-container" className="absolute top-0 left-0 w-full opacity-0 pointer-events-none print:opacity-100 print:relative printable-content">
         {reportMode === 'OPERATIONAL' ? <DailyOperationalReport movimentacoes={printData.data} stats={printData.stats} periodo={printData.period} title="Geral" /> :
          reportMode === 'MANAGEMENT' ? <ManagementReport movimentacoes={printData.data} stats={printData.stats} periodo={printData.period} title="BI" /> :
          <ShiftHandoverReport movimentacoes={printData.data} stats={printData.stats} periodo={printData.period} title="Turno" />}

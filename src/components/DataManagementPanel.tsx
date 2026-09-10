@@ -47,9 +47,14 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    const interval = setInterval(() => {
+      setIsOnline(navigator.onLine);
+    }, 1500);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
     };
   }, []);
 
@@ -79,14 +84,16 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
   };
 
   const handleSyncCloud = async () => {
-    if (!navigator.onLine) {
+    const onlineNow = navigator.onLine;
+    setIsOnline(onlineNow);
+    if (!onlineNow) {
       alert('⚠️ O dispositivo está offline. Conecte-se à internet para sincronizar com o Supabase.');
       return;
     }
 
     setIsProcessing(true);
     setSyncProgress(0);
-    setSyncStatusText('Iniciando sincronização com o Supabase...');
+    setSyncStatusText('Verificando conexão e enviando dados para o Supabase...');
 
     const result = await syncAllLocalData((progress, current, total) => {
       setSyncProgress(progress);
@@ -100,7 +107,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
       setSyncStatusText('');
       alert(result.message);
       await refreshStats();
-    }, 600);
+    }, 800);
   };
 
   const handleRestoreClick = () => fileInputRef.current?.click();
@@ -274,10 +281,10 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
             <button
               onClick={handleSyncCloud}
               disabled={!isOnline || isProcessing}
-              className={`flex items-center justify-between p-5 border-2 rounded-[24px] transition-all active:scale-95 group shadow-xs ${
+              className={`flex items-center justify-between p-5 border-2 rounded-[24px] transition-all group shadow-xs ${
                 !isOnline
-                  ? 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed'
-                  : 'bg-sky-50 border-sky-200 hover:border-sky-600 cursor-pointer'
+                  ? 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'
+                  : 'bg-sky-50 border-sky-200 hover:border-sky-600 cursor-pointer active:scale-95'
               }`}
               title={!isOnline ? 'Disponível apenas quando o dispositivo estiver online' : 'Enviar base local para o Supabase'}
             >
@@ -286,15 +293,15 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
                   <RefreshCw className={`w-6 h-6 ${isProcessing ? 'animate-spin' : ''}`} />
                 </div>
                 <div className="text-left">
-                  <span className="block text-sm font-black text-sky-950 uppercase">
-                    {!isOnline ? 'Sincronizar (Offline)' : 'Sincronizar Tudo'}
+                  <span className={`block text-sm font-black uppercase ${!isOnline ? 'text-slate-400' : 'text-sky-950'}`}>
+                    {!isOnline ? 'Sincronização Indisponível (Offline)' : 'Sincronizar Tudo'}
                   </span>
-                  <span className="block text-[10px] text-sky-700 font-medium">
-                    {!isOnline ? 'Conecte-se à internet para habilitar' : 'Enviar base local para o Supabase'}
+                  <span className="block text-[10px] text-slate-500 font-medium">
+                    {!isOnline ? 'Conecte-se à internet para habilitar' : 'Enviar e confirmar dados na nuvem'}
                   </span>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-sky-400" />
+              <ChevronRight className={`w-5 h-5 ${!isOnline ? 'text-slate-300' : 'text-sky-400'}`} />
             </button>
 
             <button

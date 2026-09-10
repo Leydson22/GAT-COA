@@ -2,7 +2,7 @@
 
 **Sistema:** Gestão e Acompanhamento de Pátio - COA  
 **Aeroporto:** Aeroporto Internacional de Cuiabá / Marechal Rondon (CGB - SBCY)  
-**Versão Atual:** `v1.7.1`  
+**Versão Atual:** `v1.7.2`  
 **Data:** 08 de Setembro de 2026  
 **Linguagem & Frameworks:** React 19, TypeScript, Tailwind CSS v4, Recharts, Lucide Icons, Capacitor v8  
 
@@ -36,6 +36,9 @@ O sistema opera com múltiplas camadas de dados para garantir resiliência, segu
 ---
 
 ## 4. Histórico de Versões e Versionamento
+
+### Versão 1.7.2 — (08/09/2026)
+- **Correção no Container de Relatórios PDF:** Adicionado o atributo `id="report-container"` no elemento container DOM responsável pela renderização e captura de relatórios para exportação PDF (`html2canvas`), solucionando o erro *"Container do relatório não encontrado"*.
 
 ### Versão 1.7.1 — (08/09/2026)
 - **Sessão Persistente Offline:** Acesso contínuo offline sem nova exigência de login/senha após o primeiro acesso, preservando a sessão localmente até que o usuário decida sair explicitamente (`Sair`).
