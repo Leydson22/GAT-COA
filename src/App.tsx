@@ -39,7 +39,7 @@ export default function App() {
   const [companhias, setCompanhias] = useState<CompanhiaAerea[]>(() => getAirlines());
   const [filtros, setFiltros] = useState<FiltrosDashboard>({ nome_companhia: 'TODAS', desembarque_hibrido: 'TODOS', dataInicio: '', dataFim: '', buscaMatricula: '' });
 
-  // 1. Auth Listener
+  // 1. Auth Listener & Online Sync Trigger
   useEffect(() => {
     const fetchProfile = async (uid: string, userEmail?: string) => {
       let { data, error } = await supabase.from('profiles').select('role, approved').eq('id', uid).single();
@@ -73,7 +73,15 @@ export default function App() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    const handleOnline = () => {
+      syncData();
+    };
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('online', handleOnline);
+    };
   }, []);
 
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoAeronave[]>(() => {
@@ -102,8 +110,16 @@ export default function App() {
     }
   }, [activeScreen]);
 
+  // Role-based filtering: Operators can only view and modify their own data
+  const movimentacoesPermitidas = useMemo(() => {
+    if (userProfile?.role === 'operator' && session?.user?.id) {
+      return movimentacoes.filter(item => !item.user_id || item.user_id === session.user.id);
+    }
+    return movimentacoes;
+  }, [movimentacoes, userProfile, session]);
+
   const movimentacoesOrdenadas = useMemo(() => {
-    const filtradas = movimentacoes.filter((item) => {
+    const filtradas = movimentacoesPermitidas.filter((item) => {
       if (filtros.nome_companhia === 'SOMENTE_AIRLINES') {
         const nonAirlines = ['outros', 'forças armadas brasileiras'];
         if (nonAirlines.includes(item.nome_companhia.toLowerCase())) return false;
@@ -117,7 +133,7 @@ export default function App() {
       return true;
     });
     return [...filtradas].sort((a, b) => `${b.data_cadastro}T${b.horario_cadastro}`.localeCompare(`${a.data_cadastro}T${a.horario_cadastro}`));
-  }, [movimentacoes, filtros]);
+  }, [movimentacoesPermitidas, filtros]);
 
   const stats: StatSummary = useMemo(() => {
     const total = movimentacoesOrdenadas.length;
@@ -146,6 +162,12 @@ export default function App() {
   };
 
   const handleToggleHibrido = (id: string) => {
+    const existing = movimentacoes.find(m => m.id_registro === id);
+    if (userProfile?.role === 'operator' && existing?.user_id && existing.user_id !== session?.user?.id) {
+      alert('⚠️ Permissão negada: você só pode modificar seus próprios registros.');
+      return;
+    }
+
     setMovimentacoes(prev => prev.map(item => {
       if (item.id_registro === id) {
         const novoStatus = item.desembarque_hibrido === 'Sim' ? 'Não' : 'Sim';
@@ -159,11 +181,34 @@ export default function App() {
   };
 
   const handleSaveRecord = (data: any, id?: string) => {
+    if (id) {
+      const existing = movimentacoes.find(m => m.id_registro === id);
+      if (userProfile?.role === 'operator' && existing?.user_id && existing.user_id !== session?.user?.id) {
+        alert('⚠️ Permissão negada: você só pode modificar seus próprios registros.');
+        return;
+      }
+    }
+
     const regId = id || `REG-${Date.now()}`;
-    if (id) setMovimentacoes(prev => prev.map(i => i.id_registro === id ? { ...i, ...data } : i));
-    else setMovimentacoes(prev => [{ id_registro: regId, ...data }, ...prev]);
+    const recordData = {
+      ...data,
+      user_id: session?.user?.id,
+      user_email: session?.user?.email
+    };
+
+    if (id) setMovimentacoes(prev => prev.map(i => i.id_registro === id ? { ...i, ...recordData } : i));
+    else setMovimentacoes(prev => [{ id_registro: regId, ...recordData }, ...prev]);
+
     addToSyncQueue(regId);
     syncData();
+    addAuditLog({
+      tipo: id ? 'EDICAO' : 'CRIACAO',
+      nivel: 'INFO',
+      origem: 'PATIO_MOBILE',
+      usuarioDispositivo: session?.user?.email || 'Usuário',
+      descricao: `${id ? 'Edição' : 'Criação'} de movimentação ${data.matricula} por ${session?.user?.email || 'Usuário'}`,
+      matriculaAeronave: data.matricula
+    });
     setAuditLogs(getAuditLogs());
   };
 
@@ -249,10 +294,10 @@ export default function App() {
           </div>
         )}
         {activeScreen === 'cadastro' && <MobileQuickEntry companhias={companhias} onSaveRecord={handleSaveRecord} onClose={() => setActiveScreen('home')} />}
-        {activeScreen === 'pousos' && <RecentLandingsScreen movimentacoes={movimentacoes} onEditRecord={(r) => { setEditingRecord(r); setIsNewModalOpen(true); }} onToggleHibrido={handleToggleHibrido} onNavigateToCadastro={() => setActiveScreen('cadastro')} onClose={() => setActiveScreen('home')} onOpenExport={handleOpenExport} />}
+        {activeScreen === 'pousos' && <RecentLandingsScreen movimentacoes={movimentacoesPermitidas} onEditRecord={(r) => { setEditingRecord(r); setIsNewModalOpen(true); }} onToggleHibrido={handleToggleHibrido} onNavigateToCadastro={() => setActiveScreen('cadastro')} onClose={() => setActiveScreen('home')} onOpenExport={handleOpenExport} />}
         {activeScreen === 'relatorios' && (
           <div className="space-y-6">
-            <QuickFilters filtros={filtros} setFiltros={setFiltros} companhias={companhias} totalFiltrados={movimentacoesOrdenadas.length} totalGeral={movimentacoes.length} />
+            <QuickFilters filtros={filtros} setFiltros={setFiltros} companhias={companhias} totalFiltrados={movimentacoesOrdenadas.length} totalGeral={movimentacoesPermitidas.length} />
             <KPIScorecards stats={stats} />
             <VisualCharts movimentacoes={movimentacoesOrdenadas} />
             <OperationalTable movimentacoes={movimentacoesOrdenadas} onEditRecord={(r) => { setEditingRecord(r); setIsNewModalOpen(true); }} onDeleteRecord={setDeletingRecord} onToggleHibrido={handleToggleHibrido} onOpenExport={handleOpenExport} />
@@ -264,7 +309,16 @@ export default function App() {
         {activeScreen === 'usuarios' && <UserManagement />}
       </main>
       <NewRegistrationModal isOpen={isNewModalOpen} onClose={() => { setIsNewModalOpen(false); setEditingRecord(null); }} onSave={handleSaveRecord} companhias={companhias} editingRecord={editingRecord} />
-      <ConfirmDeleteModal isOpen={deletingRecord !== null} record={deletingRecord} onClose={() => setDeletingRecord(null)} onConfirm={(id) => { const t = movimentacoes.find(m => m.id_registro === id); setMovimentacoes(prev => prev.filter(i => i.id_registro !== id)); if(t) addAuditLog({ tipo: 'EXCLUSAO', nivel: 'AVISO', origem: 'AREA_ADM', usuarioDispositivo: 'ADM', descricao: `Exclusão`, matriculaAeronave: t.matricula }); setAuditLogs(getAuditLogs()); }} />
+      <ConfirmDeleteModal isOpen={deletingRecord !== null} record={deletingRecord} onClose={() => setDeletingRecord(null)} onConfirm={(id) => {
+        const t = movimentacoes.find(m => m.id_registro === id);
+        if (userProfile?.role === 'operator' && t?.user_id && t.user_id !== session?.user?.id) {
+          alert('⚠️ Permissão negada: você só pode excluir seus próprios registros.');
+          return;
+        }
+        setMovimentacoes(prev => prev.filter(i => i.id_registro !== id));
+        if(t) addAuditLog({ tipo: 'EXCLUSAO', nivel: 'AVISO', origem: 'AREA_ADM', usuarioDispositivo: session?.user?.email || 'Usuário', descricao: `Exclusão de ${t.matricula} por ${session?.user?.email || 'Usuário'}`, matriculaAeronave: t.matricula });
+        setAuditLogs(getAuditLogs());
+      }} />
     </div>
   );
 }

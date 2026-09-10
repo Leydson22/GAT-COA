@@ -2,7 +2,7 @@
 
 **Sistema:** Gestão e Acompanhamento de Pátio - COA  
 **Aeroporto:** Aeroporto Internacional de Cuiabá / Marechal Rondon (CGB - SBCY)  
-**Versão Atual:** `v1.6.0`  
+**Versão Atual:** `v1.7.0`  
 **Data:** 08 de Setembro de 2026  
 **Linguagem & Frameworks:** React 19, TypeScript, Tailwind CSS v4, Recharts, Lucide Icons, Capacitor v8  
 
@@ -36,6 +36,14 @@ O sistema opera com múltiplas camadas de dados para garantir resiliência, segu
 ---
 
 ## 4. Histórico de Versões e Versionamento
+
+### Versão 1.7.0 — (08/09/2026)
+- **Modo Offline-First com Sincronização Inteligente:** Arquitetura robusta onde todos os dados inseridos ou editados são salvos localmente e sincronizados automaticamente com o Supabase ao restabelecer a conexão com a internet.
+- **Indicador Sutil de Conexão no Ícone (Header):** O ícone de avião no canto esquerdo superior do cabeçalho agora indica dinamicamente o status de conectividade e sincronização (Verde para online/sincronizado, Vermelho para offline e Amarelo pulsando para sincronização pendente).
+- **Barra de Progresso de Sincronização:** Adicionada barra de progresso em tempo real na tela de Segurança durante o envio em lote da base local para o Supabase.
+- **Botão de Sincronização Sensível a Conexão:** Ação de sincronização na nuvem restrita e habilitada condicionalmente apenas quando o dispositivo estiver online.
+- **Gestão de Usuários por Ícones:** Tela de administração de equipe reformulada com botões baseados em ícones compactos e intuitivos para aprovação, atribuição de privilégios e exclusão de usuários.
+- **Atribuição de Usuários e Logs:** Rastreabilidade completa de qual operador inseriu ou modificou cada registro no sistema.
 
 ### Versão 1.6.0 — (08/09/2026)
 - **Fluxo de Aprovação de Novos Usuários:** Implementado sistema onde novos cadastros iniciam como pendentes (`approved: false`) e exigem aprovação explícita de um Administrador na tela de Gestão de Equipe.

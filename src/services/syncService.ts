@@ -24,7 +24,8 @@ export const syncData = async () => {
         .from('movimentacoes')
         .upsert({
           id_registro: record.id_registro,
-          user_id: session.user.id,
+          user_id: record.user_id || session.user.id,
+          user_email: record.user_email || session.user.email,
           matricula: record.matricula,
           id_companhia: String(record.id_companhia),
           nome_companhia: record.nome_companhia,
@@ -51,7 +52,7 @@ export const syncData = async () => {
   }
 };
 
-export const syncAllLocalData = async () => {
+export const syncAllLocalData = async (onProgress?: (progress: number, current: number, total: number) => void) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { success: false, message: 'Usuário não autenticado' };
 
@@ -59,12 +60,16 @@ export const syncAllLocalData = async () => {
     const localData: MovimentacaoAeronave[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVIMENTACOES) || '[]');
     if (localData.length === 0) return { success: true, message: 'Nada para sincronizar' };
 
+    const total = localData.length;
+    let count = 0;
+
     for (const record of localData) {
       await supabase
         .from('movimentacoes')
         .upsert({
           id_registro: record.id_registro,
-          user_id: session.user.id,
+          user_id: record.user_id || session.user.id,
+          user_email: record.user_email || session.user.email,
           matricula: record.matricula,
           id_companhia: String(record.id_companhia),
           nome_companhia: record.nome_companhia,
@@ -76,6 +81,10 @@ export const syncAllLocalData = async () => {
           status_edicao: record.status_edicao,
           observacoes: record.observacoes
         });
+      count++;
+      if (onProgress) {
+        onProgress(Math.round((count / total) * 100), count, total);
+      }
     }
 
     // Limpar fila de pendentes pois tudo foi enviado
