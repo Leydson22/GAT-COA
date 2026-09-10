@@ -197,8 +197,8 @@ export default function App() {
   const [selectedAirline, setSelectedAirline] = useState('');
 
   const handleOpenExport = (data?: any, filters?: any, auto?: any) => {
-    const d = data || movimentacoesOrdenadas;
-    setExportContext({ data: d, filters: filters || { dataInicio: filtros.dataInicio, dataFim: filtros.dataFim } });
+    const d = data || movimentacoesPermitidas;
+    setExportContext({ data: d, filters: { dataInicio: '', dataFim: '' } });
     setPrintData({ data: d, stats: stats, period: '' });
     setAutoReportMode(auto || null);
     setActiveScreen('exportar');

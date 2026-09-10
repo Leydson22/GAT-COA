@@ -88,7 +88,7 @@ export const saveInternalSnapshot = async (name: string, isAuto: boolean = false
       name,
       timestamp: new Date().toISOString(),
       isAuto,
-      appVersion: '1.7.2'
+      appVersion: '1.7.3'
     }
   };
 
@@ -215,7 +215,7 @@ export const generateBackup = async () => {
     movimentacoes: JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVIMENTACOES) || '[]'),
     logs: JSON.parse(localStorage.getItem(STORAGE_KEYS.LOGS) || '[]'),
     models: JSON.parse(localStorage.getItem(STORAGE_KEYS.MODELS) || '[]'),
-    version: '1.7.2',
+    version: '1.7.3',
     timestamp: new Date().toISOString()
   };
 
