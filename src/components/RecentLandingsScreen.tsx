@@ -118,10 +118,10 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
               type="button"
               onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 border border-sky-200 rounded-xl text-xs font-black text-sky-950 hover:bg-sky-100 transition-all cursor-pointer shadow-2xs"
-              title={sortOrder === 'desc' ? 'Exibindo mais recentes primeiro (Clique para alternar para antigos)' : 'Exibindo mais antigos primeiro (Clique para alternar para recentes)'}
+              title={sortOrder === 'desc' ? 'Exibindo recentes (Clique para alternar para antigos)' : 'Exibindo antigos (Clique para alternar para recentes)'}
             >
-              {sortOrder === 'desc' ? <ArrowUp className="w-3.5 h-3.5 text-sky-800" /> : <ArrowDown className="w-3.5 h-3.5 text-sky-800" />}
-              <span>{sortOrder === 'desc' ? 'Recentes' : 'Antigos'}</span>
+              {sortOrder === 'desc' ? <ArrowDown className="w-3.5 h-3.5 text-sky-800" /> : <ArrowUp className="w-3.5 h-3.5 text-sky-800" />}
+              <span>{sortOrder === 'desc' ? 'Antigos' : 'Recentes'}</span>
             </button>
           </div>
 
