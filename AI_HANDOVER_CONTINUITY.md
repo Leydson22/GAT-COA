@@ -1,4 +1,4 @@
-# 🤖 AI Handover & Continuity Guide (CGB Dashboard - v1.7.3)
+# 🤖 AI Handover & Continuity Guide (CGB Dashboard - v1.8.0)
 
 Este documento foi gerado especificamente para guiar qualquer futura Inteligência Artificial ou desenvolvedor que venha a assumir este repositório. Ele resume o estado atual da arquitetura, regras de negócio implementadas, histórico de versões e o passo a passo para continuar o desenvolvimento.
 
@@ -6,31 +6,26 @@ Este documento foi gerado especificamente para guiar qualquer futura Inteligênc
 
 ## 📌 1. Visão Geral do Projeto
 - **Nome:** Gestão e Acompanhamento de Pátio - COA (Aeroporto de Cuiabá / CGB - SBCY)
-- **Versão Atual:** `v1.7.3`
+- **Versão Atual:** `v1.8.0`
 - **Stack Tecnológica:** React 19, TypeScript, Tailwind CSS v4, Lucide Icons, Recharts, Supabase (PostgreSQL), Ionic Capacitor v8 (Android), jsPDF & html2canvas.
 
 ---
 
-## 🚀 2. Últimas Funcionalidades e Ajustes Implementados (v1.7.0 a v1.7.3)
+## 🚀 2. Últimas Funcionalidades e Ajustes Implementados (v1.7.0 a v1.8.0)
 
-1. **Correção no Filtro de Relatórios / ExportModal (v1.7.3):**
-   - Ajustado em `App.tsx` (`handleOpenExport`) para passar a base completa autorizada (`movimentacoesPermitidas`) em vez de dados já filtrados pelo painel principal (`movimentacoesOrdenadas`). Isso resolveu o problema de relatórios em branco ou filtros de ExportModal falhando no mobile/desktop.
+1. **Baixar da Nuvem / Cloud Pull & Barra de Progresso Circular (v1.8.0):**
+   - Adicionada opção de download de dados do Supabase (`pullDataFromCloud` em `syncService.ts`) na tela de Segurança (`DataManagementPanel.tsx`).
+   - Criada barra de progresso em formato circular com porcentagem centralizada para operações de Upload e Download.
 
-2. **Correção do Container de Relatórios PDF (v1.7.2):**
-   - Adicionado o atributo `id="report-container"` na `div` wrapper de relatórios em `App.tsx`, corrigindo definitivamente o erro *"Container do relatório não encontrado"* durante a geração de PDFs.
+2. **Ordenação Padrão Mais Novos para Mais Antigos com Setas (v1.8.0):**
+   - Listas e telas de pousos ordenadas por padrão do mais recente para o mais antigo, com botão de alternância de direção (setas Up/Down).
 
-3. **Sessão Persistente Offline (v1.7.1):**
-   - Implementado cache local robusto (`cgb_cached_session` e `cgb_cached_profile`) no `App.tsx`.
-   - O usuário entra direto no app offline sem precisar refazer o login após o primeiro acesso, exigindo credenciais apenas ao clicar explicitamente em **"Sair"**.
+3. **Correções de Relatórios & PDF (v1.7.2 & v1.7.3):**
+   - Atributo `id="report-container"` adicionado no wrapper de relatórios em `App.tsx`.
+   - Ajuste em `handleOpenExport` passando a base completa autorizada (`movimentacoesPermitidas`) para o modal de exportação.
 
-4. **Sincronização Cloud Condicional & Offline-First (v1.7.0 / v1.7.1):**
-   - Todos os cadastros são salvos localmente e enfileirados. Sincronizações com o Supabase (`syncData`, `syncAllLocalData`) exigem `navigator.onLine`.
-
-5. **Indicador Visual Sutil de Conexão no Ícone (v1.7.0):**
-   - O ícone de avião (`Plane`) no cabeçalho superior esquerdo (`Header.tsx`) indica o status (Verde = Sincronizado, Vermelho = Offline, Amarelo = Sincronização Pendente).
-
-6. **Barra de Progresso e Gestão de Usuários por Ícones (v1.7.0):**
-   - Barra de progresso ao sincronizar dados na tela de Segurança e botões baseados em ícones na Gestão de Usuários.
+4. **Sessão Persistente Offline (v1.7.1):**
+   - Cache local robusto (`cgb_cached_session` e `cgb_cached_profile`) permitindo uso offline contínuo sem reautenticação até que o usuário clique em "Sair".
 
 ---
 
@@ -57,11 +52,9 @@ Este documento foi gerado especificamente para guiar qualquer futura Inteligênc
 ---
 
 ## 📂 4. Arquivos Principais Modificados
-- [App.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/App.tsx): Gerenciamento de sessão offline, wrapper `#report-container` e correção do `handleOpenExport` enviando a base correta para o modal de relatórios.
-- [ExportModal.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/components/ExportModal.tsx): Modal de filtros e exportação de relatórios.
-- [Header.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/components/Header.tsx): Cabeçalho com indicador de status no ícone de avião.
-- [DataManagementPanel.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/components/DataManagementPanel.tsx): Painel de segurança com barra de progresso.
-- [UserManagement.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/components/UserManagement.tsx): Administração de usuários com ícones.
-- [syncService.ts](file:///home/leydson/development/COA/dashboard-cgb/src/services/syncService.ts): Sincronização offline-first com Supabase.
-- [DOCUMENTACAO_E_VERSIONAMENTO.md](file:///home/leydson/development/COA/dashboard-cgb/DOCUMENTACAO_E_VERSIONAMENTO.md): Histórico oficial de versões até `v1.7.3`.
+- [App.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/App.tsx): Sessão offline, `#report-container` e dataset base para exportação.
+- [RecentLandingsScreen.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/components/RecentLandingsScreen.tsx): Ordenação padrão novos/antigos com toggle Up/Down.
+- [DataManagementPanel.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/components/DataManagementPanel.tsx): Painel de segurança com download da nuvem e barra de progresso circular.
+- [syncService.ts](file:///home/leydson/development/COA/dashboard-cgb/src/services/syncService.ts): `syncAllLocalData` e `pullDataFromCloud`.
+- [DOCUMENTACAO_E_VERSIONAMENTO.md](file:///home/leydson/development/COA/dashboard-cgb/DOCUMENTACAO_E_VERSIONAMENTO.md): Histórico de versões até `v1.8.0`.
 - [AI_HANDOVER_CONTINUITY.md](file:///home/leydson/development/COA/dashboard-cgb/AI_HANDOVER_CONTINUITY.md): Guia de continuidade para IA.

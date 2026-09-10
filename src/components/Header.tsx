@@ -82,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({ activeScreen, onNavigate }) => {
                 Gestão e Acompanhamento de Pátio
               </span>
               <span className="text-[8px] font-black text-sky-300 uppercase tracking-widest mt-0.5">
-                Aeroporto de Cuiabá • v1.7.3
+                Aeroporto de Cuiabá • v1.8.0
               </span>
             </div>
           </button>
