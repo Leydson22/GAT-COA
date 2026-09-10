@@ -30,8 +30,20 @@ const STORAGE_KEY = 'cgb_movimentacoes_data_v1';
 type ActiveScreen = 'home' | 'cadastro' | 'pousos' | 'relatorios' | 'exportar' | 'seguranca' | 'usuarios';
 
 export default function App() {
-  const [session, setSession] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<{ role: 'admin' | 'operator'; approved: boolean } | null>(null);
+  const [session, setSession] = useState<any>(() => {
+    try {
+      const cached = localStorage.getItem('cgb_cached_session');
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) { return null; }
+  });
+
+  const [userProfile, setUserProfile] = useState<{ role: 'admin' | 'operator'; approved: boolean } | null>(() => {
+    try {
+      const cached = localStorage.getItem('cgb_cached_profile');
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) { return null; }
+  });
+
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>('home');
   const [autoReportMode, setAutoReportMode] = useState<'OPERATIONAL' | 'MANAGEMENT' | 'SHIFTHANDOVER' | 'AIRLINE' | null>(null);
@@ -39,42 +51,73 @@ export default function App() {
   const [companhias, setCompanhias] = useState<CompanhiaAerea[]>(() => getAirlines());
   const [filtros, setFiltros] = useState<FiltrosDashboard>({ nome_companhia: 'TODAS', desembarque_hibrido: 'TODOS', dataInicio: '', dataFim: '', buscaMatricula: '' });
 
-  // 1. Auth Listener & Online Sync Trigger
+  // 1. Auth & Persistent Offline Session
   useEffect(() => {
     const fetchProfile = async (uid: string, userEmail?: string) => {
-      let { data, error } = await supabase.from('profiles').select('role, approved').eq('id', uid).single();
-      if (error || !data) {
-        const { data: newProfile } = await supabase
-          .from('profiles')
-          .upsert({ id: uid, email: userEmail || '', role: 'operator', approved: false })
-          .select('role, approved')
-          .single();
-        data = newProfile;
+      if (!navigator.onLine) {
+        // If offline, use cached profile or default operator
+        const cachedProfile = localStorage.getItem('cgb_cached_profile');
+        if (cachedProfile) {
+          setUserProfile(JSON.parse(cachedProfile));
+        } else {
+          setUserProfile({ role: 'operator', approved: true });
+        }
+        return;
       }
-      setUserProfile(data);
+
+      try {
+        let { data, error } = await supabase.from('profiles').select('role, approved').eq('id', uid).single();
+        if (error || !data) {
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .upsert({ id: uid, email: userEmail || '', role: 'operator', approved: false })
+            .select('role, approved')
+            .single();
+          data = newProfile;
+        }
+        if (data) {
+          setUserProfile(data);
+          localStorage.setItem('cgb_cached_profile', JSON.stringify(data));
+        }
+      } catch (err) {
+        const cachedProfile = localStorage.getItem('cgb_cached_profile');
+        if (cachedProfile) setUserProfile(JSON.parse(cachedProfile));
+      }
     };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        fetchProfile(session.user.id, session.user.email);
-        syncData();
+    const initAuth = async () => {
+      try {
+        if (navigator.onLine) {
+          const { data: { session: remoteSession } } = await supabase.auth.getSession();
+          if (remoteSession) {
+            setSession(remoteSession);
+            localStorage.setItem('cgb_cached_session', JSON.stringify(remoteSession));
+            await fetchProfile(remoteSession.user.id, remoteSession.user.email);
+            syncData();
+          }
+        }
+      } catch (err) {
+        // Fallback to cache if network fails
+      } finally {
+        setIsAuthLoading(false);
       }
-      setIsAuthLoading(false);
-    });
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        fetchProfile(session.user.id, session.user.email);
-        syncData();
-      } else {
-        setUserProfile(null);
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, remoteSession) => {
+      if (remoteSession) {
+        setSession(remoteSession);
+        localStorage.setItem('cgb_cached_session', JSON.stringify(remoteSession));
+        await fetchProfile(remoteSession.user.id, remoteSession.user.email);
+        if (navigator.onLine) syncData();
       }
     });
 
     const handleOnline = () => {
-      syncData();
+      if (navigator.onLine) {
+        syncData();
+      }
     };
     window.addEventListener('online', handleOnline);
 
@@ -176,7 +219,7 @@ export default function App() {
       return item;
     }));
     addToSyncQueue(id);
-    syncData();
+    if (navigator.onLine) syncData();
     setAuditLogs(getAuditLogs());
   };
 
@@ -200,7 +243,7 @@ export default function App() {
     else setMovimentacoes(prev => [{ id_registro: regId, ...recordData }, ...prev]);
 
     addToSyncQueue(regId);
-    syncData();
+    if (navigator.onLine) syncData();
     addAuditLog({
       tipo: id ? 'EDICAO' : 'CRIACAO',
       nivel: 'INFO',
@@ -221,45 +264,18 @@ export default function App() {
   };
 
   const handleExitApp = async () => {
-    if (window.confirm("Sair?")) {
-      if (window.confirm("Backup antes de sair?")) await saveInternalSnapshot(`Backup Preventivo ${new Date().toLocaleString()}`);
-      await supabase.auth.signOut();
+    if (window.confirm("Deseja sair do sistema? Será necessário refazer o login caso queira entrar novamente.")) {
+      if (window.confirm("Deseja fazer backup antes de sair?")) await saveInternalSnapshot(`Backup Preventivo ${new Date().toLocaleString()}`);
+      localStorage.removeItem('cgb_cached_session');
+      localStorage.removeItem('cgb_cached_profile');
+      if (navigator.onLine) {
+        await supabase.auth.signOut();
+      }
+      setSession(null);
+      setUserProfile(null);
       if (Capacitor.isNativePlatform()) CapacitorApp.exitApp();
     }
   };
-
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen bg-sky-950 flex flex-col items-center justify-center text-white p-6 text-center">
-        <Loader2 className="w-10 h-10 animate-spin text-amber-400 mb-4" />
-        <p className="text-xs font-black uppercase tracking-widest opacity-50">Iniciando Sistema COA...</p>
-      </div>
-    );
-  }
-
-  if (session && (!userProfile || userProfile.approved !== true)) {
-    return (
-      <div className="min-h-screen bg-sky-950 flex flex-col items-center justify-center text-white p-6 text-center space-y-4">
-        <div className="w-16 h-16 bg-amber-400 text-sky-950 rounded-2xl flex items-center justify-center mx-auto shadow-xl">
-          <Clock className="w-8 h-8 animate-spin" />
-        </div>
-        <h2 className="text-xl font-black uppercase tracking-tight">Aprovação Pendente</h2>
-        <p className="text-xs text-sky-200 font-medium max-w-sm leading-relaxed">
-          Sua conta aguarda a aprovação de um Administrador para liberar o seu acesso ao sistema.
-        </p>
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            setSession(null);
-            setUserProfile(null);
-          }}
-          className="mt-4 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all"
-        >
-          Sair / Voltar
-        </button>
-      </div>
-    );
-  }
 
   if (!session) return <Login />;
 
@@ -321,4 +337,4 @@ export default function App() {
       }} />
     </div>
   );
-}
+};

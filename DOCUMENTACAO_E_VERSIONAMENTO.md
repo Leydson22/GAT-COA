@@ -2,7 +2,7 @@
 
 **Sistema:** Gestão e Acompanhamento de Pátio - COA  
 **Aeroporto:** Aeroporto Internacional de Cuiabá / Marechal Rondon (CGB - SBCY)  
-**Versão Atual:** `v1.7.0`  
+**Versão Atual:** `v1.7.1`  
 **Data:** 08 de Setembro de 2026  
 **Linguagem & Frameworks:** React 19, TypeScript, Tailwind CSS v4, Recharts, Lucide Icons, Capacitor v8  
 
@@ -36,6 +36,10 @@ O sistema opera com múltiplas camadas de dados para garantir resiliência, segu
 ---
 
 ## 4. Histórico de Versões e Versionamento
+
+### Versão 1.7.1 — (08/09/2026)
+- **Sessão Persistente Offline:** Acesso contínuo offline sem nova exigência de login/senha após o primeiro acesso, preservando a sessão localmente até que o usuário decida sair explicitamente (`Sair`).
+- **Sincronização Cloud Condicional:** Integração e envio de dados para o Supabase restritos exclusivamente a momentos em que o dispositivo está conectado online à rede.
 
 ### Versão 1.7.0 — (08/09/2026)
 - **Modo Offline-First com Sincronização Inteligente:** Arquitetura robusta onde todos os dados inseridos ou editados são salvos localmente e sincronizados automaticamente com o Supabase ao restabelecer a conexão com a internet.

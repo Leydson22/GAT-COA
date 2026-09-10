@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
 };
 
 export const syncData = async () => {
+  if (!navigator.onLine) return { success: false, message: 'Dispositivo offline' };
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { success: false, message: 'Usuário não autenticado' };
 
@@ -53,6 +54,7 @@ export const syncData = async () => {
 };
 
 export const syncAllLocalData = async (onProgress?: (progress: number, current: number, total: number) => void) => {
+  if (!navigator.onLine) return { success: false, message: 'Dispositivo offline' };
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { success: false, message: 'Usuário não autenticado' };
 

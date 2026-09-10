@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script de Execução Android - CGB Dashboard v1.7.0
+# Script de Execução Android - CGB Dashboard v1.7.1
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/home/leydson/.local/bin:/home/leydson/.nvm/versions/node/v22.23.1/bin:/home/leydson/Android/Sdk/platform-tools:/home/leydson/Android/Sdk/emulator:$PATH"
 export ANDROID_HOME="/home/leydson/Android/Sdk"
 
