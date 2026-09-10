@@ -119,6 +119,61 @@ export const syncAllLocalData = async (onProgress?: (progress: number, current: 
   }
 };
 
+export const pullDataFromCloud = async (onProgress?: (progress: number, current: number, total: number) => void) => {
+  if (!navigator.onLine) return { success: false, message: 'Dispositivo offline. Conecte-se à internet para baixar dados.' };
+
+  try {
+    const { data: remoteData, error } = await supabase
+      .from('movimentacoes')
+      .select('*');
+
+    if (error) {
+      return { success: false, message: 'Erro ao buscar dados do Supabase: ' + error.message };
+    }
+
+    if (!remoteData || remoteData.length === 0) {
+      return { success: true, message: 'Nenhum registro encontrado na nuvem.' };
+    }
+
+    const localData: MovimentacaoAeronave[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVIMENTACOES) || '[]');
+    const localMap = new Map(localData.map(item => [item.id_registro, item]));
+
+    let count = 0;
+    const total = remoteData.length;
+
+    for (const remote of remoteData) {
+      localMap.set(remote.id_registro, {
+        id_registro: remote.id_registro,
+        matricula: remote.matricula,
+        id_companhia: remote.id_companhia,
+        nome_companhia: remote.nome_companhia,
+        desembarque_hibrido: remote.desembarque_hibrido,
+        posicao_patio: remote.posicao_patio,
+        horario_cadastro: remote.horario_cadastro,
+        data_cadastro: remote.data_cadastro,
+        tipo_aeronave: remote.tipo_aeronave,
+        status_edicao: remote.status_edicao,
+        observacoes: remote.observacoes,
+        user_id: remote.user_id,
+        user_email: remote.user_email
+      });
+
+      count++;
+      if (onProgress) {
+        onProgress(Math.round((count / total) * 100), count, total);
+      }
+    }
+
+    const mergedList = Array.from(localMap.values());
+    localStorage.setItem(STORAGE_KEYS.MOVIMENTACOES, JSON.stringify(mergedList));
+    localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify([]));
+
+    return { success: true, message: `Download concluído com sucesso! ${total} registros da nuvem foram baixados e comparados/atualizados no celular.` };
+  } catch (err) {
+    return { success: false, message: 'Erro de conexão ao baixar dados da nuvem' };
+  }
+};
+
 export const addToSyncQueue = (id: string) => {
   const pending: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PENDING_SYNC) || '[]');
   if (!pending.includes(id)) {

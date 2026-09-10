@@ -11,7 +11,7 @@ import {
   saveInternalSnapshot, restoreFromSnapshot, deleteSnapshot,
   SnapshotMetadata, BackupConfig
 } from '../services/dataManagementService';
-import { syncAllLocalData, getPendingSyncCount } from '../services/syncService';
+import { syncAllLocalData, pullDataFromCloud, getPendingSyncCount } from '../services/syncService';
 
 interface DataManagementPanelProps {
   onDataRestored: () => void;
@@ -87,17 +87,44 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
     const onlineNow = navigator.onLine;
     setIsOnline(onlineNow);
     if (!onlineNow) {
-      alert('⚠️ O dispositivo está offline. Conecte-se à internet para sincronizar com o Supabase.');
+      alert('⚠️ O dispositivo está offline. Conecte-se à internet para enviar dados para o Supabase.');
       return;
     }
 
     setIsProcessing(true);
     setSyncProgress(0);
-    setSyncStatusText('Verificando conexão e enviando dados para o Supabase...');
+    setSyncStatusText('Enviando dados locais para o Supabase...');
 
     const result = await syncAllLocalData((progress, current, total) => {
       setSyncProgress(progress);
       setSyncStatusText(`Enviando ${current} de ${total} registros (${progress}%)`);
+    });
+
+    setSyncStatusText(result.message);
+    setTimeout(async () => {
+      setIsProcessing(false);
+      setSyncProgress(0);
+      setSyncStatusText('');
+      alert(result.message);
+      await refreshStats();
+    }, 800);
+  };
+
+  const handleDownloadCloud = async () => {
+    const onlineNow = navigator.onLine;
+    setIsOnline(onlineNow);
+    if (!onlineNow) {
+      alert('⚠️ O dispositivo está offline. Conecte-se à internet para baixar dados do Supabase.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setSyncProgress(0);
+    setSyncStatusText('Baixando e comparando dados da nuvem...');
+
+    const result = await pullDataFromCloud((progress, current, total) => {
+      setSyncProgress(progress);
+      setSyncStatusText(`Baixando ${current} de ${total} registros (${progress}%)`);
     });
 
     setSyncStatusText(result.message);
@@ -243,7 +270,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
             </div>
             <div>
               <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Sincronização em Nuvem (Supabase)</h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase">Enviar dados locais para o servidor</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase">Enviar e baixar dados do servidor</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -261,23 +288,40 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
           </div>
         </div>
 
-        {/* Progress bar during sync */}
-        {isProcessing && syncProgress > 0 && (
-          <div className="px-6 pt-4 pb-2 space-y-1.5 bg-sky-50/50 border-b border-sky-100 animate-in fade-in duration-200">
-            <div className="flex justify-between items-center text-[11px] font-black uppercase text-sky-950">
-              <span>{syncStatusText}</span>
-              <span>{syncProgress}%</span>
+        {/* Circular Progress Bar Widget during sync */}
+        {isProcessing && syncProgress >= 0 && (
+          <div className="px-6 py-6 bg-sky-50/80 border-b border-sky-100 flex flex-col items-center justify-center space-y-3 animate-in fade-in duration-200">
+            <div className="relative w-24 h-24 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-slate-200"
+                  strokeWidth="3.5"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className="text-emerald-500 transition-all duration-300"
+                  strokeDasharray={`${syncProgress}, 100`}
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center font-black text-base text-sky-950">
+                {syncProgress}%
+              </div>
             </div>
-            <div className="w-full bg-slate-200 rounded-full h-3.5 overflow-hidden border border-slate-300 shadow-inner">
-              <div
-                className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
-                style={{ width: `${syncProgress}%` }}
-              ></div>
-            </div>
+            <span className="text-xs font-black uppercase text-sky-900 tracking-wider text-center">
+              {syncStatusText}
+            </span>
           </div>
         )}
 
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Upload to Cloud */}
             <button
               onClick={handleSyncCloud}
               disabled={!isOnline || isProcessing}
@@ -290,18 +334,45 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
             >
               <div className="flex items-center gap-4">
                 <div className={`p-3 rounded-2xl shadow-lg transition-transform ${!isOnline ? 'bg-slate-400 text-white' : 'bg-sky-600 text-white group-hover:scale-110'}`}>
-                  <RefreshCw className={`w-6 h-6 ${isProcessing ? 'animate-spin' : ''}`} />
+                  <CloudUpload className={`w-6 h-6 ${isProcessing ? 'animate-pulse' : ''}`} />
                 </div>
                 <div className="text-left">
                   <span className={`block text-sm font-black uppercase ${!isOnline ? 'text-slate-400' : 'text-sky-950'}`}>
-                    {!isOnline ? 'Sincronização Indisponível (Offline)' : 'Sincronizar Tudo'}
+                    {!isOnline ? 'Enviar (Offline)' : 'Sincronizar (Upload)'}
                   </span>
                   <span className="block text-[10px] text-slate-500 font-medium">
-                    {!isOnline ? 'Conecte-se à internet para habilitar' : 'Enviar e confirmar dados na nuvem'}
+                    {!isOnline ? 'Conecte-se à internet para habilitar' : 'Enviar dados locais para a nuvem'}
                   </span>
                 </div>
               </div>
               <ChevronRight className={`w-5 h-5 ${!isOnline ? 'text-slate-300' : 'text-sky-400'}`} />
+            </button>
+
+            {/* Download from Cloud */}
+            <button
+              onClick={handleDownloadCloud}
+              disabled={!isOnline || isProcessing}
+              className={`flex items-center justify-between p-5 border-2 rounded-[24px] transition-all group shadow-xs ${
+                !isOnline
+                  ? 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'
+                  : 'bg-emerald-50 border-emerald-200 hover:border-emerald-600 cursor-pointer active:scale-95'
+              }`}
+              title={!isOnline ? 'Disponível apenas quando o dispositivo estiver online' : 'Baixar e comparar dados da nuvem'}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-2xl shadow-lg transition-transform ${!isOnline ? 'bg-slate-400 text-white' : 'bg-emerald-600 text-white group-hover:scale-110'}`}>
+                  <CloudDownload className={`w-6 h-6 ${isProcessing ? 'animate-pulse' : ''}`} />
+                </div>
+                <div className="text-left">
+                  <span className={`block text-sm font-black uppercase ${!isOnline ? 'text-slate-400' : 'text-emerald-950'}`}>
+                    {!isOnline ? 'Baixar (Offline)' : 'Baixar da Nuvem'}
+                  </span>
+                  <span className="block text-[10px] text-slate-500 font-medium">
+                    {!isOnline ? 'Conecte-se à internet para habilitar' : 'Baixar e comparar com o celular'}
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className={`w-5 h-5 ${!isOnline ? 'text-slate-300' : 'text-emerald-500'}`} />
             </button>
 
             <button
