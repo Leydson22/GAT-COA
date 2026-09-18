@@ -1,4 +1,4 @@
-# 🤖 AI Handover & Continuity Guide (CGB Dashboard - v1.8.0)
+# 🤖 AI Handover & Continuity Guide (CGB Dashboard - v1.8.1)
 
 Este documento foi gerado especificamente para guiar qualquer futura Inteligência Artificial ou desenvolvedor que venha a assumir este repositório. Ele resume o estado atual da arquitetura, regras de negócio implementadas, histórico de versões e o passo a passo para continuar o desenvolvimento.
 
@@ -6,26 +6,26 @@ Este documento foi gerado especificamente para guiar qualquer futura Inteligênc
 
 ## 📌 1. Visão Geral do Projeto
 - **Nome:** Gestão e Acompanhamento de Pátio - COA (Aeroporto de Cuiabá / CGB - SBCY)
-- **Versão Atual:** `v1.8.0`
+- **Versão Atual:** `v1.8.1`
 - **Stack Tecnológica:** React 19, TypeScript, Tailwind CSS v4, Lucide Icons, Recharts, Supabase (PostgreSQL), Ionic Capacitor v8 (Android), jsPDF & html2canvas.
 
 ---
 
-## 🚀 2. Últimas Funcionalidades e Ajustes Implementados (v1.7.0 a v1.8.0)
+## 🚀 2. Últimas Funcionalidades e Ajustes Implementados (v1.8.1)
 
-1. **Baixar da Nuvem / Cloud Pull & Barra de Progresso Circular (v1.8.0):**
-   - Adicionada opção de download de dados do Supabase (`pullDataFromCloud` em `syncService.ts`) na tela de Segurança (`DataManagementPanel.tsx`).
-   - Criada barra de progresso em formato circular com porcentagem centralizada para operações de Upload e Download.
+1. **Estabilização da Conexão Supabase no Mobile (v1.8.1):**
+   - Configurado explicitamente o storage de persistência (`storage: window.localStorage`) na inicialização do cliente Supabase (`lib/supabase.ts`) para compatibilidade perfeita com Capacitor Android WebView.
+   - Adicionado parâmetro `{ onConflict: 'id_registro' }` nas chamadas `.upsert()` em `syncService.ts` para garantir upserts consistentes sem erros de conflito.
 
-2. **Ordenação Padrão Mais Novos para Mais Antigos com Setas (v1.8.0):**
-   - Listas e telas de pousos ordenadas por padrão do mais recente para o mais antigo, com botão de alternância de direção (setas Up/Down).
+2. **Sessão Persistente Offline & Restrições por Perfil:**
+   - Cache local robusto (`cgb_cached_session` e `cgb_cached_profile`) mantendo o usuário logado offline.
+   - Operadores sincronizam apenas seus próprios dados (`user_id`), e ações de limpeza definitiva são exclusivas para Administradores.
 
-3. **Correções de Relatórios & PDF (v1.7.2 & v1.7.3):**
-   - Atributo `id="report-container"` adicionado no wrapper de relatórios em `App.tsx`.
-   - Ajuste em `handleOpenExport` passando a base completa autorizada (`movimentacoesPermitidas`) para o modal de exportação.
+3. **Baixar da Nuvem & Progresso Circular:**
+   - Opção de download reverso do Supabase (`pullDataFromCloud`) com indicador de progresso circular (`0%` a `100%` com valor centralizado).
 
-4. **Sessão Persistente Offline (v1.7.1):**
-   - Cache local robusto (`cgb_cached_session` e `cgb_cached_profile`) permitindo uso offline contínuo sem reautenticação até que o usuário clique em "Sair".
+4. **Navegação por Recência:**
+   - Listagens ordenadas por padrão do mais recente para o mais antigo, com botão **"Recentes" / "Antigos"** e setas Up/Down.
 
 ---
 
@@ -52,9 +52,10 @@ Este documento foi gerado especificamente para guiar qualquer futura Inteligênc
 ---
 
 ## 📂 4. Arquivos Principais Modificados
+- [supabase.ts](file:///home/leydson/development/COA/dashboard-cgb/src/lib/supabase.ts): Configuração do cliente Supabase com `localStorage` explícito para Capacitor.
+- [syncService.ts](file:///home/leydson/development/COA/dashboard-cgb/src/services/syncService.ts): Upsert otimizado com `{ onConflict: 'id_registro' }` e tratamento de erros aprimorado.
 - [App.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/App.tsx): Sessão offline, `#report-container` e dataset base para exportação.
-- [RecentLandingsScreen.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/components/RecentLandingsScreen.tsx): Ordenação padrão novos/antigos com toggle Up/Down.
+- [RecentLandingsScreen.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/components/RecentLandingsScreen.tsx): Ordenação por recência com toggle Up/Down.
 - [DataManagementPanel.tsx](file:///home/leydson/development/COA/dashboard-cgb/src/components/DataManagementPanel.tsx): Painel de segurança com download da nuvem e barra de progresso circular.
-- [syncService.ts](file:///home/leydson/development/COA/dashboard-cgb/src/services/syncService.ts): `syncAllLocalData` e `pullDataFromCloud`.
-- [DOCUMENTACAO_E_VERSIONAMENTO.md](file:///home/leydson/development/COA/dashboard-cgb/DOCUMENTACAO_E_VERSIONAMENTO.md): Histórico de versões até `v1.8.0`.
+- [DOCUMENTACAO_E_VERSIONAMENTO.md](file:///home/leydson/development/COA/dashboard-cgb/DOCUMENTACAO_E_VERSIONAMENTO.md): Histórico oficial até `v1.8.1`.
 - [AI_HANDOVER_CONTINUITY.md](file:///home/leydson/development/COA/dashboard-cgb/AI_HANDOVER_CONTINUITY.md): Guia de continuidade para IA.

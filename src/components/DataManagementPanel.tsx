@@ -90,7 +90,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
   const handleSyncCloud = async () => {
     setIsProcessing(true);
     setSyncProgress(0);
-    setSyncStatusText(isAdmin ? 'Enviando dados para o Supabase...' : 'Enviando seus registros para a nuvem...');
+    setSyncStatusText(isAdmin ? 'En4upabase...' : 'Enviando seus registros para a nuvem...');
 
     const result = await syncAllLocalData((progress, current, total) => {
       setSyncProgress(progress);

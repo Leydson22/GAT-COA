@@ -7,12 +7,15 @@ const STORAGE_KEYS = {
 };
 
 export const syncData = async () => {
-  if (!navigator.onLine) return { success: false, message: 'Dispositivo offline' };
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return { success: false, message: 'Usuário não autenticado' };
+  const cachedSession = localStorage.getItem('cgb_cached_session');
+  let session = cachedSession ? JSON.parse(cachedSession) : null;
+  if (!session || !session.user) {
+    const { data: { session: remoteSession } } = await supabase.auth.getSession();
+    session = remoteSession;
+  }
+  if (!session || !session.user) return { success: false, message: 'Usuário não autenticado' };
 
   try {
-    // 1. Obter dados locais pendentes
     const localData: MovimentacaoAeronave[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOVIMENTACOES) || '[]');
     const pendingSync: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PENDING_SYNC) || '[]');
 
@@ -37,25 +40,25 @@ export const syncData = async () => {
           tipo_aeronave: record.tipo_aeronave,
           status_edicao: record.status_edicao,
           observacoes: record.observacoes
-        });
+        }, { onConflict: 'id_registro' });
 
       if (!error) {
-        // Remover da fila de pendentes se deu certo
         const currentPending: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PENDING_SYNC) || '[]');
         const updatedPending = currentPending.filter(id => id !== record.id_registro);
         localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify(updatedPending));
+      } else {
+        console.error('Supabase sync error for record:', record.id_registro, error);
       }
     }
 
     return { success: true, message: 'Sincronização concluída' };
-  } catch (err) {
-    return { success: false, message: 'Erro de conexão' };
+  } catch (err: any) {
+    console.error('Supabase connection error:', err);
+    return { success: false, message: 'Erro de conexão: ' + (err?.message || 'Falha ao conectar ao Supabase') };
   }
 };
 
 export const syncAllLocalData = async (onProgress?: (progress: number, current: number, total: number) => void) => {
-  if (!navigator.onLine) return { success: false, message: 'Dispositivo offline. Conecte-se à internet para sincronizar.' };
-
   const cachedSession = localStorage.getItem('cgb_cached_session');
   let session = cachedSession ? JSON.parse(cachedSession) : null;
   if (!session || !session.user) {
@@ -95,10 +98,11 @@ export const syncAllLocalData = async (onProgress?: (progress: number, current: 
           tipo_aeronave: record.tipo_aeronave,
           status_edicao: record.status_edicao,
           observacoes: record.observacoes
-        });
+        }, { onConflict: 'id_registro' });
 
       if (error) {
         failedCount++;
+        console.error('Supabase upsert error:', error);
       } else {
         count++;
       }
@@ -110,18 +114,17 @@ export const syncAllLocalData = async (onProgress?: (progress: number, current: 
 
     if (failedCount === 0) {
       localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify([]));
-      return { success: true, message: `Sincronização concluída com sucesso! ${count} de ${total} registros enviados e confirmados na nuvem com identificação de usuário (${activeUserEmail}).` };
+      return { success: true, message: `Sincronização concluída com sucesso! ${count} de ${total} registros enviados e confirmados na nuvem (${activeUserEmail}).` };
     } else {
-      return { success: false, message: `Sincronização parcial: ${count} enviados, ${failedCount} falharam. Verifique a conexão com o Supabase.` };
+      return { success: false, message: `Sincronização parcial: ${count} enviados, ${failedCount} falharam. Verifique as políticas RLS do Supabase.` };
     }
-  } catch (err) {
-    return { success: false, message: 'Erro de conexão ao sincronizar com o Supabase' };
+  } catch (err: any) {
+    console.error('Supabase syncAll error:', err);
+    return { success: false, message: 'Erro de conexão ao sincronizar com o Supabase: ' + (err?.message || '') };
   }
 };
 
 export const pullDataFromCloud = async (onProgress?: (progress: number, current: number, total: number) => void) => {
-  if (!navigator.onLine) return { success: false, message: 'Dispositivo offline. Conecte-se à internet para baixar dados.' };
-
   const cachedSession = localStorage.getItem('cgb_cached_session');
   let session = cachedSession ? JSON.parse(cachedSession) : null;
   if (!session || !session.user) {
@@ -143,6 +146,7 @@ export const pullDataFromCloud = async (onProgress?: (progress: number, current:
     const { data: remoteData, error } = await query;
 
     if (error) {
+      console.error('Supabase pull error:', error);
       return { success: false, message: 'Erro ao buscar dados do Supabase: ' + error.message };
     }
 
@@ -183,9 +187,10 @@ export const pullDataFromCloud = async (onProgress?: (progress: number, current:
     localStorage.setItem(STORAGE_KEYS.MOVIMENTACOES, JSON.stringify(mergedList));
     localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify([]));
 
-    return { success: true, message: `Download concluído com sucesso! ${total} registros da nuvem foram baixados e comparados/atualizados no celular.` };
-  } catch (err) {
-    return { success: false, message: 'Erro de conexão ao baixar dados da nuvem' };
+    return { success: true, message: `Download concluído com sucesso! ${total} registros da nuvem foram baixados e sincronizados.` };
+  } catch (err: any) {
+    console.error('Supabase pull connection error:', err);
+    return { success: false, message: 'Erro de conexão ao baixar dados da nuvem: ' + (err?.message || '') };
   }
 };
 

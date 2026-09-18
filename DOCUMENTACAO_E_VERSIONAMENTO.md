@@ -2,8 +2,8 @@
 
 **Sistema:** Gestão e Acompanhamento de Pátio - COA  
 **Aeroporto:** Aeroporto Internacional de Cuiabá / Marechal Rondon (CGB - SBCY)  
-**Versão Atual:** `v1.8.0`  
-**Data:** 08 de Setembro de 2026  
+**Versão Atual:** `v1.8.1`  
+**Data:** 18 de Setembro de 2026  
 **Linguagem & Frameworks:** React 19, TypeScript, Tailwind CSS v4, Recharts, Lucide Icons, Capacitor v8  
 
 ---
@@ -18,7 +18,7 @@ Este dashboard foi projetado sob medida para a equipe de fiscalização de páti
 
 O sistema opera com múltiplas camadas de dados para garantir resiliência, segurança e sincronização:
 1. **LocalStorage:** Cache de alta performance para operação diária e offline.
-2. **Supabase (PostgreSQL):** Banco de dados relacional em nuvem com sincronização offline-first (`syncService`).
+2. **Supabase (PostgreSQL):** Banco de dados relacional em nuvem com sincronização offline-first (`syncService`) e políticas RLS avançadas.
 3. **Capacitor Filesystem:** Armazenamento de snapshots permanentes (Máquina do Tempo) na memória física do dispositivo Android.
 4. **Exportação Externa:** Geração de arquivos JSON e CSV para arquivamento externo.
 
@@ -37,27 +37,20 @@ O sistema opera com múltiplas camadas de dados para garantir resiliência, segu
 
 ## 4. Histórico de Versões e Versionamento
 
-### Versão 1.8.0 — (08/09/2026)
-- **Sincronização Cloud Restrita por Perfil (Operator vs Admin):** Usuários comuns (operadores) agora realizam upload e download restritos exclusivamente aos seus próprios registros (`user_id`), enquanto administradores operam sobre a base global.
-- **Proteção de Limpeza Definitiva:** Ações destrutivas e de manutenção global (Limpeza de Pousos, Limpeza de Logs e Reset Total) foram restritas exclusivamente a Administradores.
-- **Baixar da Nuvem & Progresso Circular:** Sincronização reversa do Supabase para o dispositivo com barra de progresso em formato de círculo e valor centralizado.
-- **Ordenação Padrão por Recência & Toggle Up/Down ("Recentes" / "Antigos"):** Listagens organizadas por padrão do mais recente para o mais antigo, com botão de alternância intuitivo.
-- **Correções de Relatórios & PDF:** Correção no escopo de dados do `ExportModal` e no wrapper `#report-container` para exportação de PDFs.
+### Versão 1.8.1 — (18/09/2026)
+- **Correção e Estabilização da Conexão com o Supabase:** Configuração explícita de persistência de sessão auth no cliente Supabase para Capacitor (`storage: window.localStorage`), adição de `{ onConflict: 'id_registro' }` nas requisições `.upsert()`, e tratamento robusto de erros para envio contínuo de dados na nuvem.
+- **Sincronização Cloud Restrita por Perfil (Operator vs Admin):** Operadores realizam upload e download restritos aos seus próprios registros (`user_id`), e ações definitivas de limpeza restritas exclusivamente a Administradores.
+- **Baixar da Nuvem & Progresso Circular:** Sincronização reversa com barra de progresso em formato de círculo e valor centralizado.
+- **Ordenação Padrão por Recência & Toggle ("Recentes" / "Antigos"):** Listagens organizadas por padrão do mais recente para o mais antigo, com botão de alternância com setas Up/Down.
+- **Correção de Relatórios & PDF:** Ajuste no escopo de dados do `ExportModal` e no wrapper `#report-container` para exportação de PDFs.
 
-### Versão 1.7.3 — (08/09/2026)
-- **Correção no Filtro de Relatórios (ExportModal):** Base completa autorizada repassada ao modal para evitar relatórios em branco.
-
-### Versão 1.7.2 — (08/09/2026)
-- **Correção no Container de Relatórios PDF:** Adicionado `id="report-container"` no DOM.
-
-### Versão 1.7.1 — (08/09/2026)
-- **Sessão Persistente Offline:** Acesso contínuo offline sem nova exigência de login/senha após o primeiro acesso.
-
-### Versão 1.7.0 — (08/09/2026)
-- **Modo Offline-First com Sincronização Inteligente:** Sincronização automática e indicador sutil de conexão no cabeçalho.
+### Versão 1.8.0 — (18/09/2026)
+- **Dashboard Interativo e Moderno:** Aprimoramento visual completo dos gráficos analíticos (`VisualCharts.tsx`) e cartões KPI (`KPIScorecards.tsx`).
+- **Defesas Avançadas contra Bots (Segurança):** Implementação de Honeypot e Rate Limiting no formulário de cadastro e autenticação.
+- **Fluxo Robusto de Aprovação de Usuários:** Controles rigorosos de aprovação de contas e restrições de acesso por perfil (RBAC).
 
 ### Versão 1.6.0 — (08/09/2026)
-- **Fluxo de Aprovação de Novos Usuários & RBAC:** Aprovação prévia por administrador e restrição por perfil.
+- **Fluxo de Aprovação de Novos Usuários:** Implementado sistema onde novos cadastros iniciam como pendentes (`approved: false`).
 
 ### Versão 1.5.0 — (13/08/2026)
 - **Integração Supabase (Cloud) & Autenticação:** Início da migração para arquitetura Cloud Sync.
