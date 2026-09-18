@@ -84,6 +84,8 @@ export const syncAllLocalData = async (onProgress?: (progress: number, current: 
     const total = localData.length;
     let count = 0;
     let failedCount = 0;
+    let lastErrorMessage = '';
+    let lastErrorDetails = '';
 
     for (const record of localData) {
       const recordUserId = record.user_id || activeUserId;
@@ -109,6 +111,8 @@ export const syncAllLocalData = async (onProgress?: (progress: number, current: 
 
       if (error) {
         failedCount++;
+        lastErrorMessage = error.message;
+        lastErrorDetails = error.details || '';
         console.error('Supabase upsert error:', error);
       } else {
         count++;
@@ -123,7 +127,7 @@ export const syncAllLocalData = async (onProgress?: (progress: number, current: 
       localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify([]));
       return { success: true, message: `Sincronização concluída com sucesso! ${count} de ${total} registros enviados e confirmados na nuvem (${activeUserEmail}).` };
     } else {
-      return { success: false, message: `Sincronização parcial: ${count} enviados, ${failedCount} falharam. Verifique as políticas RLS do Supabase.` };
+      return { success: false, message: `Falha no Supabase: ${lastErrorMessage} ${lastErrorDetails ? `(${lastErrorDetails})` : ''}` };
     }
   } catch (err: any) {
     console.error('Supabase syncAll error:', err);
