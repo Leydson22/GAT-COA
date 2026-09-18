@@ -88,16 +88,9 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
   };
 
   const handleSyncCloud = async () => {
-    const onlineNow = navigator.onLine;
-    setIsOnline(onlineNow);
-    if (!onlineNow) {
-      alert('⚠️ O dispositivo está offline. Conecte-se à internet para enviar dados para o Supabase.');
-      return;
-    }
-
     setIsProcessing(true);
     setSyncProgress(0);
-    setSyncStatusText(isAdmin ? 'Enviando seus dados para o Supabase...' : 'Enviando seus registros para a nuvem...');
+    setSyncStatusText(isAdmin ? 'Enviando dados para o Supabase...' : 'Enviando seus registros para a nuvem...');
 
     const result = await syncAllLocalData((progress, current, total) => {
       setSyncProgress(progress);
@@ -115,16 +108,9 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
   };
 
   const handleDownloadCloud = async () => {
-    const onlineNow = navigator.onLine;
-    setIsOnline(onlineNow);
-    if (!onlineNow) {
-      alert('⚠️ O dispositivo está offline. Conecte-se à internet para baixar dados do Supabase.');
-      return;
-    }
-
     setIsProcessing(true);
     setSyncProgress(0);
-    setSyncStatusText(isAdmin ? 'Baixando todos os dados da nuvem...' : 'Baixando seus registros da nuvem...');
+    setSyncStatusText(isAdmin ? 'Baixando dados da nuvem...' : 'Baixando seus registros da nuvem...');
 
     const result = await pullDataFromCloud((progress, current, total) => {
       setSyncProgress(progress);
@@ -330,55 +316,47 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
             {/* Upload to Cloud */}
             <button
               onClick={handleSyncCloud}
-              disabled={!isOnline || isProcessing}
-              className={`flex items-center justify-between p-5 border-2 rounded-[24px] transition-all group shadow-xs ${
-                !isOnline
-                  ? 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'
-                  : 'bg-sky-50 border-sky-200 hover:border-sky-600 cursor-pointer active:scale-95'
-              }`}
-              title={!isOnline ? 'Disponível apenas quando o dispositivo estiver online' : 'Enviar seus dados para o Supabase'}
+              disabled={isProcessing}
+              className="flex items-center justify-between p-5 bg-sky-50 border-2 border-sky-200 hover:border-sky-600 rounded-[24px] transition-all group shadow-xs cursor-pointer active:scale-95"
+              title="Enviar seus dados para o Supabase"
             >
               <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-2xl shadow-lg transition-transform ${!isOnline ? 'bg-slate-400 text-white' : 'bg-sky-600 text-white group-hover:scale-110'}`}>
+                <div className="p-3 bg-sky-600 text-white rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
                   <CloudUpload className={`w-6 h-6 ${isProcessing ? 'animate-pulse' : ''}`} />
                 </div>
                 <div className="text-left">
-                  <span className={`block text-sm font-black uppercase ${!isOnline ? 'text-slate-400' : 'text-sky-950'}`}>
-                    {!isOnline ? 'Enviar (Offline)' : 'Sincronizar (Upload)'}
+                  <span className="block text-sm font-black text-sky-950 uppercase">
+                    Sincronizar (Upload)
                   </span>
-                  <span className="block text-[10px] text-slate-500 font-medium">
-                    {!isOnline ? 'Conecte-se à internet para habilitar' : isAdmin ? 'Enviar todos os dados locais' : 'Enviar seus dados pessoais'}
+                  <span className="block text-[10px] text-sky-700 font-medium">
+                    {isAdmin ? 'Enviar todos os dados locais' : 'Enviar seus dados pessoais'}
                   </span>
                 </div>
               </div>
-              <ChevronRight className={`w-5 h-5 ${!isOnline ? 'text-slate-300' : 'text-sky-400'}`} />
+              <ChevronRight className="w-5 h-5 text-sky-400" />
             </button>
 
             {/* Download from Cloud */}
             <button
               onClick={handleDownloadCloud}
-              disabled={!isOnline || isProcessing}
-              className={`flex items-center justify-between p-5 border-2 rounded-[24px] transition-all group shadow-xs ${
-                !isOnline
-                  ? 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'
-                  : 'bg-emerald-50 border-emerald-200 hover:border-emerald-600 cursor-pointer active:scale-95'
-              }`}
-              title={!isOnline ? 'Disponível apenas quando o dispositivo estiver online' : 'Baixar e comparar dados da nuvem'}
+              disabled={isProcessing}
+              className="flex items-center justify-between p-5 bg-emerald-50 border-2 border-emerald-200 hover:border-emerald-600 rounded-[24px] transition-all group shadow-xs cursor-pointer active:scale-95"
+              title="Baixar e comparar dados da nuvem"
             >
               <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-2xl shadow-lg transition-transform ${!isOnline ? 'bg-slate-400 text-white' : 'bg-emerald-600 text-white group-hover:scale-110'}`}>
+                <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
                   <CloudDownload className={`w-6 h-6 ${isProcessing ? 'animate-pulse' : ''}`} />
                 </div>
                 <div className="text-left">
-                  <span className={`block text-sm font-black uppercase ${!isOnline ? 'text-slate-400' : 'text-emerald-950'}`}>
-                    {!isOnline ? 'Baixar (Offline)' : 'Baixar da Nuvem'}
+                  <span className="block text-sm font-black text-emerald-950 uppercase">
+                    Baixar da Nuvem
                   </span>
-                  <span className="block text-[10px] text-slate-500 font-medium">
-                    {!isOnline ? 'Conecte-se à internet para habilitar' : isAdmin ? 'Baixar base global da nuvem' : 'Baixar seus dados da nuvem'}
+                  <span className="block text-[10px] text-emerald-700 font-medium">
+                    {isAdmin ? 'Baixar base global da nuvem' : 'Baixar seus dados da nuvem'}
                   </span>
                 </div>
               </div>
-              <ChevronRight className={`w-5 h-5 ${!isOnline ? 'text-slate-300' : 'text-emerald-500'}`} />
+              <ChevronRight className="w-5 h-5 text-emerald-500" />
             </button>
 
             <button
