@@ -16,3 +16,19 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: window.localStorage
   }
 });
+
+// Restaurar sessão em cache no cliente Supabase na inicialização
+try {
+  const cached = localStorage.getItem('cgb_cached_session');
+  if (cached) {
+    const session = JSON.parse(cached);
+    if (session?.access_token && session?.refresh_token) {
+      supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token
+      }).catch(err => console.error('Erro ao restaurar sessão no Supabase:', err));
+    }
+  }
+} catch (e) {
+  console.error('Erro ao ler sessão em cache:', e);
+}

@@ -6,13 +6,25 @@ const STORAGE_KEYS = {
   PENDING_SYNC: 'cgb_pending_sync_v1'
 };
 
-export const syncData = async () => {
+const ensureSupabaseSession = async () => {
   const cachedSession = localStorage.getItem('cgb_cached_session');
-  let session = cachedSession ? JSON.parse(cachedSession) : null;
-  if (!session || !session.user) {
-    const { data: { session: remoteSession } } = await supabase.auth.getSession();
-    session = remoteSession;
+  if (cachedSession) {
+    try {
+      const parsed = JSON.parse(cachedSession);
+      if (parsed?.access_token && parsed?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: parsed.access_token,
+          refresh_token: parsed.refresh_token
+        });
+      }
+    } catch (e) {}
   }
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+};
+
+export const syncData = async () => {
+  const session = await ensureSupabaseSession();
   if (!session || !session.user) return { success: false, message: 'Usuário não autenticado' };
 
   try {
@@ -59,12 +71,7 @@ export const syncData = async () => {
 };
 
 export const syncAllLocalData = async (onProgress?: (progress: number, current: number, total: number) => void) => {
-  const cachedSession = localStorage.getItem('cgb_cached_session');
-  let session = cachedSession ? JSON.parse(cachedSession) : null;
-  if (!session || !session.user) {
-    const { data: { session: remoteSession } } = await supabase.auth.getSession();
-    session = remoteSession;
-  }
+  const session = await ensureSupabaseSession();
   if (!session || !session.user) return { success: false, message: 'Usuário não autenticado' };
 
   const activeUserId = session.user.id;
@@ -125,12 +132,7 @@ export const syncAllLocalData = async (onProgress?: (progress: number, current: 
 };
 
 export const pullDataFromCloud = async (onProgress?: (progress: number, current: number, total: number) => void) => {
-  const cachedSession = localStorage.getItem('cgb_cached_session');
-  let session = cachedSession ? JSON.parse(cachedSession) : null;
-  if (!session || !session.user) {
-    const { data: { session: remoteSession } } = await supabase.auth.getSession();
-    session = remoteSession;
-  }
+  const session = await ensureSupabaseSession();
   if (!session || !session.user) return { success: false, message: 'Usuário não autenticado' };
 
   const cachedProfile = localStorage.getItem('cgb_cached_profile');
