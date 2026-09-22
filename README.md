@@ -2,7 +2,7 @@
 
 Sistema executivo e operacional para monitoramento de movimentações de aeronaves no **Aeroporto Internacional de Cuiabá (CGB - SBCY)**.
 
-![Versão](https://img.shields.io/badge/vers%C3%A3o-1.8.1-blue)
+![Versão](https://img.shields.io/badge/vers%C3%A3o-1.8.2-blue)
 ![React](https://img.shields.io/badge/React-19-blue)
 ![Capacitor](https://img.shields.io/badge/Capacitor-8-emerald)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-cyan)
@@ -12,10 +12,11 @@ Este aplicativo foi desenvolvido para auxiliar a fiscalização de pátio e a ge
 
 ## 🚀 Funcionalidades Principais
 - **Lançamento de Pátio:** Fluxo de cadastro rápido e simplificado em 5 etapas otimizado para celulares.
-- **Business Intelligence:** Gráficos interativos de Market Share, Volumetria e Tendência de Performance (acesso exclusivo para administradores).
-- **Controle de Acessos & Aprovação:** Sistema de aprovação de novos cadastros e permissões granulares por perfil (`admin` vs `operator`).
+- **Business Intelligence & Dashboard:** Gráficos interativos de Market Share, Volumetria e Tendência de Performance (acesso exclusivo para administradores).
+- **Controle de Acessos & Aprovação:** Sistema de aprovação de novos cadastros, autocriação de perfil (*Self-Healing*) e permissões granulares por perfil (`admin` vs `operator`).
 - **Relatórios Profissionais:** Geração de PDFs (Turno, BI, Operacional) e planilhas CSV com compartilhamento nativo.
-- **Segurança de Dados:** Sistema de "Máquina do Tempo" com snapshots internos, importação/exportação de JSON e sincronização com Supabase.
+- **Segurança de Dados:** Sistema de "Máquina do Tempo" com snapshots internos, importação/exportação de JSON e sincronização robusta com Supabase (políticas RLS otimizadas).
+- **Defesas contra Bots:** Honeypot e Rate Limiting integrados no formulário de autenticação.
 - **Modo Offline:** Funciona totalmente sem internet, enfileirando dados localmente para sincronização automática ao detectar conexão.
 
 ## 🛠️ Tecnologias Utilizadas
