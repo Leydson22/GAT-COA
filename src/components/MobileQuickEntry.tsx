@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Building2, MapPin, Plane, Layers, CheckCircle2, Check, X,
   PlusCircle, ChevronRight, ChevronLeft, Trash2, Edit2, Plus,
-  Hash, Briefcase
+  Hash, Briefcase, Smartphone, ArrowLeft
 } from 'lucide-react';
 import { CompanhiaAerea, MovimentacaoAeronave, DesembarqueHibrido } from '../types';
 import { AirlineLogo } from './AirlineLogo';
@@ -50,7 +50,6 @@ export const MobileQuickEntry: React.FC<MobileQuickEntryProps> = ({
     modelo?: string;
   } | null>(null);
 
-  // Management Handlers
   const handleSelectCompany = (id: number | string) => {
     if (managementMode === 'edit') {
       const comp = companhias.find(c => String(c.id_companhia) === String(id));
@@ -58,137 +57,85 @@ export const MobileQuickEntry: React.FC<MobileQuickEntryProps> = ({
       const newName = window.prompt(`Editar nome da empresa:`, comp.nome_companhia);
       const newIcao = window.prompt(`Editar ICAO (3 letras):`, comp.icao);
       if (newName && newName.trim() && newIcao && newIcao.trim()) {
-        const updated = editAirline(id, newName.trim(), newIcao.trim());
-        setCompanhias(updated);
+        editAirline(comp.id_companhia, newName.trim(), newIcao.trim().toUpperCase());
+        setCompanhias(getAirlines());
       }
       setManagementMode('select');
-    } else if (managementMode === 'delete') {
-      if (window.confirm(`Excluir empresa selecionada?`)) {
-        const updated = deleteAirline(id);
-        setCompanhias(updated);
-      }
-      setManagementMode('select');
-    } else {
-      setSelectedCompanhiaId(id);
-      setTimeout(() => setCurrentStep(2), 150);
+      return;
     }
+    if (managementMode === 'delete') {
+      const comp = companhias.find(c => String(c.id_companhia) === String(id));
+      if (!comp) return;
+      if (window.confirm(`Excluir empresa ${comp.nome_companhia}?`)) {
+        deleteAirline(comp.id_companhia);
+        setCompanhias(getAirlines());
+      }
+      setManagementMode('select');
+      return;
+    }
+    setSelectedCompanhiaId(id);
+    setCurrentStep(2);
   };
 
   const handleAddCompany = () => {
-    const name = window.prompt("Nome da Empresa:");
-    const icao = window.prompt("Código ICAO (Ex: AZU, TAM):");
-    if (name && name.trim() && icao && icao.trim()) {
-      const updated = addAirline(name.trim(), icao.trim());
-      setCompanhias(updated);
-      setManagementMode('select');
-    }
-  };
-
-  const handleSelectPosition = (pos: string) => {
-    if (managementMode === 'edit') {
-      const newPos = window.prompt(`Editar posição "${pos}" para:`, pos);
-      if (newPos && newPos.trim() && newPos !== pos) {
-        editPosition(pos, newPos.trim(), grupoPosicao);
-        setPositions(getPositions());
-      }
-      setManagementMode('select');
-    } else if (managementMode === 'delete') {
-      if (window.confirm(`Excluir posição "${pos}"?`)) {
-        deletePosition(pos, grupoPosicao);
-        setPositions(getPositions());
-      }
-      setManagementMode('select');
-    } else {
-      setPosicaoPatio(pos);
-      setTimeout(() => setCurrentStep(3), 150);
+    const nome = window.prompt('Nome da nova Companhia Aérea:');
+    const icao = window.prompt('Código ICAO (3 letras, ex: AZU):');
+    if (nome && nome.trim() && icao && icao.trim()) {
+      addAirline(nome.trim(), icao.trim().toUpperCase());
+      setCompanhias(getAirlines());
     }
   };
 
   const handleAddPosition = () => {
-    const newPos = window.prompt("Nova Posição (Ex: 24 ou A16):");
-    if (newPos && newPos.trim()) {
-      addPosition(newPos.trim(), grupoPosicao);
+    const pos = window.prompt('Número ou Nome do Box (ex: 08, REM 1):');
+    if (pos && pos.trim()) {
+      addPosition(pos.trim().toUpperCase(), 'principal');
       setPositions(getPositions());
-      setManagementMode('select');
-    }
-  };
-
-  const handleSelectPrefix = (pref: string) => {
-    if (managementMode === 'edit') {
-      const newPref = window.prompt(`Editar prefixo "${pref}" para:`, pref);
-      if (newPref && newPref.trim() && newPref !== pref) {
-        const updated = editQuickPrefix(pref, newPref.trim());
-        setPrefixes(updated);
-      }
-      setManagementMode('select');
-    } else if (managementMode === 'delete') {
-      if (window.confirm(`Excluir prefixo "${pref}"?`)) {
-        const updated = deleteQuickPrefix(pref);
-        setPrefixes(updated);
-      }
-      setManagementMode('select');
-    } else {
-      setMatricula(pref);
     }
   };
 
   const handleAddPrefix = () => {
-    const newPref = window.prompt("Novo Prefixo (Ex: VH-, N):");
-    if (newPref && newPref.trim()) {
-      const updated = addQuickPrefix(newPref.trim());
-      setPrefixes(updated);
-      setManagementMode('select');
-    }
-  };
-
-  const handleSelectModelo = (mod: string) => {
-    if (managementMode === 'edit') {
-      const newName = window.prompt(`Editar modelo:`, mod);
-      if (newName && newName.trim() && newName !== mod) {
-        const updated = editAircraftModel(mod, newName.trim());
-        setModelos(updated);
-      }
-      setManagementMode('select');
-    } else if (managementMode === 'delete') {
-      if (window.confirm(`Excluir modelo "${mod}"?`)) {
-        const updated = deleteAircraftModel(mod);
-        setModelos(updated);
-      }
-      setManagementMode('select');
-    } else {
-      setSelectedModelo(mod);
-      setTimeout(() => setCurrentStep(5), 150);
+    const pref = window.prompt('Prefixo de matrícula rápido (ex: PR-, PT-):');
+    if (pref && pref.trim()) {
+      addQuickPrefix(pref.trim().toUpperCase());
+      setPrefixes(getQuickPrefixes());
     }
   };
 
   const handleAddModel = () => {
-    const name = window.prompt("Nome do Equipamento:");
-    if (name && name.trim()) {
-      const updated = addAircraftModel(name.trim());
-      setModelos(updated);
-      setManagementMode('select');
+    const mod = window.prompt('Modelo de Aeronave (ex: A320, B738, AT72):');
+    if (mod && mod.trim()) {
+      addAircraftModel(mod.trim().toUpperCase());
+      setModelos(getAircraftModels());
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!matricula.trim()) {
+      alert('Informe a matrícula da aeronave.');
+      return;
+    }
+
+    const company = companhias.find(c => String(c.id_companhia) === String(selectedCompanhiaId));
+    if (!company) {
+      alert('Selecione uma companhia válida.');
+      return;
+    }
+
     const cleanMatricula = matricula.trim().toUpperCase();
-    if (!cleanMatricula) { alert('Informe a matrícula'); return; }
-    const company = companhias.find(c => String(c.id_companhia) === String(selectedCompanhiaId)) || companhias[0];
     const now = new Date();
-    const autoDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const autoTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    const autoTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
+    const autoDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
 
     onSaveRecord({
       matricula: cleanMatricula,
-      id_companhia: company.id_companhia,
       nome_companhia: company.nome_companhia,
       desembarque_hibrido: desembarqueHibrido,
       posicao_patio: posicaoPatio,
-      data_cadastro: autoDate,
       horario_cadastro: autoTime,
-      tipo_aeronave: selectedModelo || 'Aeronave Comercial',
-      status_edicao: 'Auditado',
+      data_cadastro: autoDate,
+      tipo_aeronave: selectedModelo
     });
 
     setRegisteredModal({
@@ -203,7 +150,29 @@ export const MobileQuickEntry: React.FC<MobileQuickEntryProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-50 w-full h-full overflow-hidden box-border">
+    <div className="flex-1 flex flex-col bg-slate-50 w-full h-full overflow-hidden box-border max-w-4xl mx-auto pb-20">
+      {/* Header Card Standard (Blue matching Pátio tile color) */}
+      <div className="bg-blue-600 text-white p-6 sm:p-8 rounded-[32px] shadow-xl relative overflow-hidden border border-blue-500 m-4 sm:m-6 mb-0">
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+               <div className="p-3 bg-white/20 rounded-2xl shadow-md"><Smartphone className="w-6 h-6 text-white" /></div>
+               <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">Lançamento de Pátio (CGB)</h2>
+            </div>
+            <p className="text-blue-100 text-xs font-bold uppercase tracking-widest pl-1">Cadastro rápido de aeronave e posição</p>
+          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all active:scale-95 text-xs font-black uppercase tracking-wider border border-white/20 cursor-pointer text-white shadow-md"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+          )}
+        </div>
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none"></div>
+      </div>
+
       {registeredModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[2000] flex items-center justify-center p-4">
           <div className="bg-white rounded-[32px] p-6 w-full max-w-[340px] shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
@@ -217,8 +186,8 @@ export const MobileQuickEntry: React.FC<MobileQuickEntryProps> = ({
                <div className="flex justify-between"><span className="text-slate-400">Posição:</span><span className="font-black">BOX {registeredModal.posicao}</span></div>
             </div>
             <div className="grid grid-cols-1 gap-3">
-              <button onClick={() => {setRegisteredModal(null); setCurrentStep(1);}} className="w-full py-4 bg-sky-900 text-white font-black text-sm rounded-2xl shadow-lg">NOVO POUSO</button>
-              <button onClick={onClose} className="w-full py-3.5 bg-slate-100 text-slate-500 font-black text-xs rounded-2xl uppercase">Início</button>
+              <button onClick={() => {setRegisteredModal(null); setCurrentStep(1);}} className="w-full py-4 bg-sky-900 text-white font-black text-sm rounded-2xl shadow-lg cursor-pointer">NOVO POUSO</button>
+              <button onClick={onClose} className="w-full py-3.5 bg-slate-100 text-slate-500 font-black text-xs rounded-2xl uppercase cursor-pointer">Início</button>
             </div>
           </div>
         </div>
@@ -242,126 +211,184 @@ export const MobileQuickEntry: React.FC<MobileQuickEntryProps> = ({
                 else if(currentStep === 2) handleAddPosition();
                 else if(currentStep === 3) handleAddPrefix();
                 else if(currentStep === 4) handleAddModel();
-              }} className="p-2 bg-white text-emerald-600 rounded-lg shadow-xs border border-slate-200"><Plus className="w-4 h-4 stroke-[3]" /></button>
-              <button type="button" onClick={() => setManagementMode(prev => prev === 'edit' ? 'select' : 'edit')} className={`p-2 rounded-lg transition-all ${managementMode === 'edit' ? 'bg-amber-500 text-white' : 'bg-white text-amber-600 border border-slate-200'}`}><Edit2 className="w-4 h-4" /></button>
-              <button type="button" onClick={() => setManagementMode(prev => prev === 'delete' ? 'select' : 'delete')} className={`p-2 rounded-lg transition-all ${managementMode === 'delete' ? 'bg-rose-600 text-white' : 'bg-white text-rose-600 border border-slate-200'}`}><Trash2 className="w-4 h-4" /></button>
+              }} className="p-2 bg-white text-emerald-600 rounded-lg shadow-xs border border-slate-200 cursor-pointer" title="Adicionar Novo"><Plus className="w-4 h-4 stroke-[3]" /></button>
+              <button type="button" onClick={() => setManagementMode(prev => prev === 'edit' ? 'select' : 'edit')} className={`p-2 rounded-lg transition-all cursor-pointer ${managementMode === 'edit' ? 'bg-amber-500 text-white' : 'bg-white text-amber-600 border border-slate-200'}`} title="Editar"><Edit2 className="w-4 h-4" /></button>
+              <button type="button" onClick={() => setManagementMode(prev => prev === 'delete' ? 'select' : 'delete')} className={`p-2 rounded-lg transition-all cursor-pointer ${managementMode === 'delete' ? 'bg-rose-600 text-white' : 'bg-white text-rose-600 border border-slate-200'}`} title="Excluir"><Trash2 className="w-4 h-4" /></button>
            </div>
         </div>
 
-        {managementMode !== 'select' && (
-          <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-center animate-pulse shadow-sm border-2 ${managementMode === 'edit' ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-rose-50 text-rose-800 border-rose-300'}`}>
-            {managementMode === 'edit' ? '✏️ Modo Edição Ativo' : '🗑️ Modo Exclusão Ativo'}
-          </div>
-        )}
-
-        {/* STEP 1: EMPRESA */}
+        {/* STEP 1: Companhia */}
         {currentStep === 1 && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {companhias.map((comp) => (
-                <button key={comp.id_companhia} type="button" onClick={() => handleSelectCompany(comp.id_companhia)} className={`relative p-5 rounded-3xl border-2 flex items-center justify-center transition-all active:scale-95 ${
-                  managementMode === 'edit' ? 'border-amber-400 bg-amber-50' :
-                  managementMode === 'delete' ? 'border-rose-400 bg-rose-50' :
-                  String(comp.id_companhia) === String(selectedCompanhiaId) ? 'border-sky-600 bg-white ring-4 ring-sky-100 shadow-md' : 'border-white bg-white shadow-xs'
-                }`}>
-                  <AirlineLogo icao={comp.icao} nome_companhia={comp.nome_companhia} size="md" />
-                </button>
-              ))}
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Selecione a Companhia Aérea</h3>
+            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-3">
+              {companhias.map((comp) => {
+                const isSelected = String(selectedCompanhiaId) === String(comp.id_companhia);
+                return (
+                  <button
+                    key={comp.id_companhia}
+                    type="button"
+                    onClick={() => handleSelectCompany(comp.id_companhia)}
+                    className={`p-4 rounded-3xl border-2 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer active:scale-95 shadow-xs ${
+                      managementMode === 'edit'
+                        ? 'bg-amber-50 border-amber-400 text-amber-900'
+                        : managementMode === 'delete'
+                        ? 'bg-rose-50 border-rose-400 text-rose-900'
+                        : isSelected
+                        ? 'bg-sky-900 border-sky-900 text-white shadow-md'
+                        : 'bg-white border-slate-100 text-slate-800 hover:border-sky-300'
+                    }`}
+                  >
+                    <AirlineLogo icao={comp.icao} nome_companhia={comp.nome_companhia} size="lg" />
+                    <span className="text-[11px] font-black tracking-tight text-center truncate w-full">{comp.nome_companhia}</span>
+                  </button>
+                );
+              })}
             </div>
-            <button type="button" onClick={() => {setManagementMode('select'); setCurrentStep(2);}} className="w-full py-4 bg-sky-900 text-white font-black text-sm rounded-2xl shadow-lg flex items-center justify-center gap-2 uppercase tracking-widest">Avançar <ChevronRight className="w-5 h-5 text-amber-300" /></button>
           </div>
         )}
 
-        {/* STEP 2: POSIÇÃO */}
+        {/* STEP 2: Posição Box */}
         {currentStep === 2 && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="flex rounded-2xl bg-slate-200/50 p-1.5 text-xs font-black border border-slate-200">
-              <button type="button" onClick={() => setGrupoPosicao('principal')} className={`flex-1 py-2.5 rounded-xl transition-all ${grupoPosicao === 'principal' ? 'bg-sky-900 text-white shadow-md' : 'text-slate-600'}`}>Pontes (01-23)</button>
-              <button type="button" onClick={() => setGrupoPosicao('remota')} className={`flex-1 py-2.5 rounded-xl transition-all ${grupoPosicao === 'remota' ? 'bg-sky-900 text-white shadow-md' : 'text-slate-600'}`}>Remotas (A01-A15)</button>
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="flex justify-between items-center px-1">
+               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Selecione o Box / Posição</h3>
+               <div className="flex bg-slate-200 p-1 rounded-xl">
+                 <button type="button" onClick={() => setGrupoPosicao('principal')} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${grupoPosicao === 'principal' ? 'bg-sky-900 text-white shadow-xs' : 'text-slate-600'}`}>Principal</button>
+                 <button type="button" onClick={() => setGrupoPosicao('remota')} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${grupoPosicao === 'remota' ? 'bg-sky-900 text-white shadow-xs' : 'text-slate-600'}`}>Remota</button>
+               </div>
             </div>
-            <div className="grid grid-cols-4 xs:grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-2.5 p-4 bg-white rounded-3xl border-2 border-slate-50 max-h-[350px] overflow-y-auto shadow-inner place-items-center">
-              {(grupoPosicao === 'principal' ? positions.principais : positions.remotas).map((pos) => (
+
+            <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 gap-2.5">
+              {positions.filter(p => grupoPosicao === 'principal' ? !p.includes('REM') : p.includes('REM')).map((pos) => {
+                const isSelected = posicaoPatio === pos;
+                return (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => { setPosicaoPatio(pos); setCurrentStep(3); }}
+                    className={`py-4 rounded-2xl border-2 font-mono font-black text-base transition-all cursor-pointer active:scale-95 shadow-xs ${
+                      isSelected ? 'bg-amber-400 border-amber-500 text-sky-950 shadow-md' : 'bg-white border-slate-100 text-slate-800 hover:border-sky-300'
+                    }`}
+                  >
+                    {pos}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 flex justify-start">
+              <button type="button" onClick={() => setCurrentStep(1)} className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-black uppercase text-slate-700 cursor-pointer flex items-center gap-1.5"><ChevronLeft className="w-4 h-4"/> Voltar</button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: Matrícula */}
+        {currentStep === 3 && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Informe a Matrícula da Aeronave</h3>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Ex: PR-AXG ou PT-MZY"
+                value={matricula}
+                onChange={(e) => setMatricula(e.target.value.toUpperCase())}
+                autoFocus
+                className="w-full bg-white border-2 border-slate-200 rounded-3xl p-5 text-xl font-mono font-black text-sky-950 uppercase outline-hidden focus:border-sky-600 shadow-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {prefixes.map((p) => (
                 <button
-                  key={pos}
+                  key={p}
                   type="button"
-                  onClick={() => handleSelectPosition(pos)}
-                  className={`flex items-center justify-center h-12 w-full max-w-[64px] rounded-xl text-sm font-mono font-black transition-all border-2 ${
-                    managementMode === 'edit' ? 'border-amber-400 bg-amber-50 animate-pulse' :
-                    managementMode === 'delete' ? 'border-rose-400 bg-rose-50 animate-pulse' :
-                    pos === posicaoPatio ? 'bg-sky-700 border-sky-700 text-amber-300 shadow-md ring-4 ring-sky-100' :
-                    'bg-slate-50 border-slate-200 text-slate-800 hover:border-sky-300'
-                  }`}
+                  onClick={() => setMatricula(prev => prev ? prev + p : p)}
+                  className="py-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl font-mono font-bold text-xs text-slate-700 shadow-2xs cursor-pointer"
                 >
-                  {pos}
+                  {p}
                 </button>
               ))}
             </div>
-            <div className="flex gap-3">
-              <button type="button" onClick={() => { setManagementMode('select'); setCurrentStep(1); }} className="flex-1 py-4 bg-white border-2 border-slate-200 text-slate-700 font-black text-xs rounded-2xl flex items-center justify-center gap-1 uppercase tracking-widest"><ChevronLeft className="w-4 h-4" /> Voltar</button>
-              <button type="button" onClick={() => { setManagementMode('select'); setCurrentStep(3); }} className="flex-1 py-4 bg-sky-900 text-white font-black text-xs rounded-2xl shadow-lg flex items-center justify-center gap-1.5 uppercase tracking-widest">Próximo <ChevronRight className="w-4 h-4 text-amber-300" /></button>
+
+            <div className="pt-4 flex justify-between">
+              <button type="button" onClick={() => setCurrentStep(2)} className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-black uppercase text-slate-700 cursor-pointer flex items-center gap-1.5"><ChevronLeft className="w-4 h-4"/> Voltar</button>
+              <button type="button" onClick={() => { if(matricula.trim()) setCurrentStep(4); else alert('Informe a matrícula.'); }} className="px-8 py-3 bg-sky-900 text-white rounded-2xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-md flex items-center gap-1.5">Avançar <ChevronRight className="w-4 h-4"/></button>
             </div>
           </div>
         )}
 
-        {/* STEP 3: MATRÍCULA */}
-        {currentStep === 3 && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="flex gap-2 flex-wrap bg-white p-3 rounded-2xl border-2 border-slate-100">
-              {prefixes.map((pref) => (
-                <button key={pref} type="button" onClick={() => handleSelectPrefix(pref)} className={`px-4 py-2 font-black font-mono text-sm rounded-xl border-2 transition-all ${
-                  managementMode === 'edit' ? 'bg-amber-50 border-amber-300 text-amber-900' :
-                  managementMode === 'delete' ? 'bg-rose-50 border-rose-300 text-rose-900' :
-                  'bg-sky-50 text-sky-950 border-sky-200 shadow-xs'
-                }`}>+{pref}</button>
-              ))}
-            </div>
-            <input type="text" required autoFocus autoCapitalize="characters" placeholder="MATRÍCULA..." value={matricula} onChange={(e) => setMatricula(e.target.value.toUpperCase())} className="w-full px-6 py-5 border-2 border-slate-200 focus:border-sky-600 rounded-3xl text-2xl font-mono font-black text-sky-950 bg-white shadow-sm tracking-[0.2em] focus:outline-none focus:ring-8 focus:ring-sky-50" />
-            <div className="flex gap-3">
-              <button type="button" onClick={() => {setManagementMode('select'); setCurrentStep(2);}} className="flex-1 py-4 bg-white border-2 border-slate-200 text-slate-700 font-black text-xs rounded-2xl flex items-center justify-center gap-1 uppercase tracking-widest"><ChevronLeft className="w-4 h-4" /> Voltar</button>
-              <button type="button" onClick={() => { setManagementMode('select'); if(matricula.trim()) setCurrentStep(4); else alert('Informe a matrícula'); }} className="flex-1 py-4 bg-sky-900 text-white font-black text-xs rounded-2xl shadow-lg flex items-center justify-center gap-1.5 uppercase tracking-widest">Próximo <ChevronRight className="w-4 h-4 text-amber-300" /></button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 4: MODELO / EQUIPAMENTO */}
+        {/* STEP 4: Modelo / Equipamento */}
         {currentStep === 4 && (
-          <div className="space-y-5 animate-in fade-in duration-200">
-            <div className="grid grid-cols-2 gap-3 p-1 max-h-[420px] overflow-y-auto scrollbar-none">
-              {modelos.map((mod) => (
-                <button key={mod} type="button" onClick={() => handleSelectModelo(mod)} className={`px-4 py-5 rounded-[20px] text-xs sm:text-sm font-black transition-all flex items-center justify-center text-center shadow-sm border-2 leading-tight ${
-                    managementMode === 'edit' ? 'border-amber-400 bg-amber-50 text-amber-900' :
-                    managementMode === 'delete' ? 'border-rose-400 bg-rose-50 text-rose-900' :
-                    selectedModelo === mod ? 'border-sky-600 bg-sky-800 text-white shadow-lg ring-4 ring-sky-100' : 'bg-white text-slate-700 border-slate-100 hover:border-sky-200'
-                  }`}>{mod}</button>
-              ))}
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Equipamento / Modelo (Opcional)</h3>
+            <div className="grid grid-cols-3 xs:grid-cols-4 gap-2.5">
+              {modelos.map((mod) => {
+                const isSelected = selectedModelo === mod;
+                return (
+                  <button
+                    key={mod}
+                    type="button"
+                    onClick={() => setSelectedModelo(mod)}
+                    className={`py-3.5 px-3 rounded-2xl border-2 font-black text-xs uppercase tracking-wider transition-all cursor-pointer ${
+                      isSelected ? 'bg-sky-900 border-sky-900 text-white shadow-md' : 'bg-white border-slate-100 text-slate-800 hover:border-sky-300'
+                    }`}
+                  >
+                    {mod}
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex gap-4 pt-2">
-              <button type="button" onClick={() => { setManagementMode('select'); setCurrentStep(3); }} className="flex-1 py-4.5 bg-white border-2 border-slate-200 text-slate-700 font-black text-xs rounded-2xl flex items-center justify-center gap-1 uppercase tracking-widest active:bg-slate-50 transition-colors">VOLTAR</button>
-              <button type="button" onClick={() => { setManagementMode('select'); setCurrentStep(5); }} className="flex-[1.5] py-4.5 bg-sky-900 text-white font-black text-xs rounded-2xl shadow-xl flex items-center justify-center gap-2 uppercase tracking-widest active:bg-sky-950 transition-all">Próximo <ChevronRight className="w-5 h-5 text-amber-400" /></button>
+
+            <div className="pt-4 flex justify-between">
+              <button type="button" onClick={() => setCurrentStep(3)} className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-black uppercase text-slate-700 cursor-pointer flex items-center gap-1.5"><ChevronLeft className="w-4 h-4"/> Voltar</button>
+              <button type="button" onClick={() => setCurrentStep(5)} className="px-8 py-3 bg-sky-900 text-white rounded-2xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-md flex items-center gap-1.5">Avançar <ChevronRight className="w-4 h-4"/></button>
             </div>
           </div>
         )}
 
-        {/* STEP 5: DESEMBARQUE HÍBRIDO */}
+        {/* STEP 5: Desembarque Híbrido & Finalizar */}
         {currentStep === 5 && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setDesembarqueHibrido('Sim')} className={`py-6 rounded-3xl border-2 font-black text-sm flex flex-col items-center gap-2 transition-all ${desembarqueHibrido === 'Sim' ? 'bg-amber-500 border-amber-600 text-white shadow-lg ring-4 ring-amber-100' : 'bg-white border-slate-200 text-slate-400'}`}>
-                <CheckCircle2 className="w-6 h-6" /> SIM (Híbrido)
-              </button>
-              <button type="button" onClick={() => setDesembarqueHibrido('Não')} className={`py-6 rounded-3xl border-2 font-black text-sm flex flex-col items-center gap-2 transition-all ${desembarqueHibrido === 'Não' ? 'bg-sky-800 border-sky-900 text-white shadow-lg ring-4 ring-sky-100' : 'bg-white border-slate-200 text-slate-400'}`}>
-                <CheckCircle2 className="w-6 h-6" /> NÃO (Padrão)
-              </button>
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="space-y-3">
+               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Tipo de Desembarque (Ponte / Híbrido)</h3>
+               <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDesembarqueHibrido('Não')}
+                    className={`p-5 rounded-3xl border-2 text-center transition-all cursor-pointer ${
+                      desembarqueHibrido === 'Não' ? 'bg-sky-900 border-sky-900 text-white shadow-md' : 'bg-white border-slate-100 text-slate-800'
+                    }`}
+                  >
+                    <span className="block text-sm font-black uppercase">Padrão (Ponte)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDesembarqueHibrido('Sim')}
+                    className={`p-5 rounded-3xl border-2 text-center transition-all cursor-pointer ${
+                      desembarqueHibrido === 'Sim' ? 'bg-amber-500 border-amber-600 text-white shadow-md' : 'bg-white border-slate-100 text-slate-800'
+                    }`}
+                  >
+                    <span className="block text-sm font-black uppercase">Híbrido (Misto)</span>
+                  </button>
+               </div>
             </div>
-            <div className="bg-white p-5 rounded-3xl border-2 border-slate-100 space-y-2 text-xs sm:text-sm font-mono shadow-inner uppercase font-black">
-              <div className="flex justify-between"><span>Empresa:</span><span className="text-sky-900">{(companhias.find(c => String(c.id_companhia) === String(selectedCompanhiaId)) || companhias[0]).nome_companhia}</span></div>
-              <div className="flex justify-between"><span>Posição:</span><span className="bg-amber-300 px-2 rounded-lg text-sky-950">BOX {posicaoPatio}</span></div>
-              <div className="flex justify-between"><span>Matrícula:</span><span className="text-sky-900">{matricula}</span></div>
-              {selectedModelo && <div className="flex justify-between"><span>Modelo:</span><span className="text-sky-800">{selectedModelo}</span></div>}
+
+            <div className="bg-white p-5 rounded-3xl border-2 border-slate-100 shadow-xs space-y-2 text-xs font-mono">
+               <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Matrícula:</span><strong className="text-sky-950 font-black text-sm">{matricula || 'N/A'}</strong></div>
+               <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Posição:</span><strong className="text-slate-900 font-bold">BOX {posicaoPatio}</strong></div>
+               <div className="flex justify-between border-b pb-2"><span className="text-slate-400">Modelo:</span><strong className="text-slate-900 font-bold">{selectedModelo || 'Não especificado'}</strong></div>
+               <div className="flex justify-between"><span className="text-slate-400">Desembarque:</span><strong className="text-slate-900 font-bold">{desembarqueHibrido === 'Sim' ? 'HÍBRIDO' : 'PADRÃO'}</strong></div>
             </div>
-            <div className="flex gap-3">
-              <button type="button" onClick={() => {setManagementMode('select'); setCurrentStep(4);}} className="flex-1 py-4 bg-white border-2 border-slate-200 text-slate-700 font-black text-xs rounded-2xl flex items-center justify-center gap-1 uppercase tracking-widest"><ChevronLeft className="w-4 h-4" /> Voltar</button>
-              <button type="submit" className="flex-[2] py-5 bg-emerald-600 text-white font-black text-base rounded-2xl shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest">Finalizar Registro</button>
+
+            <div className="pt-4 flex justify-between items-center">
+              <button type="button" onClick={() => setCurrentStep(4)} className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-black uppercase text-slate-700 cursor-pointer flex items-center gap-1.5"><ChevronLeft className="w-4 h-4"/> Voltar</button>
+              <button
+                type="submit"
+                className="px-10 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-2xl shadow-xl uppercase tracking-wider cursor-pointer active:scale-95 transition-all flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-5 h-5" /> Salvar Pouso
+              </button>
             </div>
           </div>
         )}

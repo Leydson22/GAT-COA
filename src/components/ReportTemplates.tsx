@@ -10,6 +10,15 @@ interface ReportProps {
   periodo?: string;
 }
 
+const sortMovimentacoesDesc = (movs: MovimentacaoAeronave[]) => {
+  if (!Array.isArray(movs)) return [];
+  return [...movs].sort((a, b) => {
+    const dtA = `${a.data_cadastro || ''}T${a.horario_cadastro || ''}`;
+    const dtB = `${b.data_cadastro || ''}T${b.horario_cadastro || ''}`;
+    return dtB.localeCompare(dtA);
+  });
+};
+
 const ReportHeader: React.FC<{ title: string; subtitle?: string; periodo?: string }> = ({ title, subtitle, periodo }) => (
   <div style={{ borderBottom: '2px solid #082f49', paddingBottom: '16px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
     <div>
@@ -44,12 +53,14 @@ const ReportFooter: React.FC = () => (
 );
 
 export const DailyOperationalReport: React.FC<ReportProps> = ({ movimentacoes, stats, periodo }) => {
+  const sortedMovs = sortMovimentacoesDesc(movimentacoes);
+
   return (
     <div style={{ backgroundColor: '#ffffff', fontFamily: 'sans-serif', color: '#0f172a', padding: '20px' }}>
       <ReportHeader
         title="Relatório Operacional Diário"
         periodo={periodo}
-        subtitle="Movimentações de Aeronaves em Pátio"
+        subtitle="Movimentações de Aeronaves em Pátio (ISO 8601 Descendente)"
       />
 
       {/* KPI Summary Row */}
@@ -75,7 +86,7 @@ export const DailyOperationalReport: React.FC<ReportProps> = ({ movimentacoes, s
       <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
         <thead style={{ backgroundColor: '#082f49', color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           <tr>
-            <th style={{ padding: '8px 12px', textAlign: 'left' }}>Data/Hora</th>
+            <th style={{ padding: '8px 12px', textAlign: 'left' }}>Data/Hora (ISO Desc)</th>
             <th style={{ padding: '8px 12px', textAlign: 'left' }}>Matrícula</th>
             <th style={{ padding: '8px 12px', textAlign: 'left' }}>Companhia</th>
             <th style={{ padding: '8px 12px', textAlign: 'center' }}>Box</th>
@@ -84,15 +95,15 @@ export const DailyOperationalReport: React.FC<ReportProps> = ({ movimentacoes, s
           </tr>
         </thead>
         <tbody style={{ border: '1px solid #e2e8f0' }}>
-          {movimentacoes.map((m) => (
+          {sortedMovs.map((m) => (
             <tr key={m.id_registro} style={{ borderBottom: '1px solid #e2e8f0' }}>
               <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', fontWeight: '500' }}>
-                {m.data_cadastro.split('-').reverse().join('/')} {m.horario_cadastro}
+                {m.data_cadastro ? m.data_cadastro.split('-').reverse().join('/') : ''} {m.horario_cadastro}
               </td>
               <td style={{ padding: '8px 12px', fontWeight: '700', fontFamily: 'monospace' }}>{m.matricula}</td>
               <td style={{ padding: '8px 12px' }}>{m.nome_companhia}</td>
               <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: '700' }}>{m.posicao_patio || '—'}</td>
-              <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: '900', color: '#334155' }}>{m.desembarque_hibrido.toUpperCase()}</td>
+              <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: '900', color: '#334155' }}>{m.desembarque_hibrido ? m.desembarque_hibrido.toUpperCase() : ''}</td>
               <td style={{ padding: '8px 12px', color: '#64748b', maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {m.tipo_aeronave || m.observacoes || '—'}
               </td>
@@ -118,35 +129,35 @@ export const DailyOperationalReport: React.FC<ReportProps> = ({ movimentacoes, s
 };
 
 export const ManagementReport: React.FC<ReportProps> = ({ stats, movimentacoes, title, periodo }) => {
-  // Group data by date for volumetry table
+  const sortedMovs = sortMovimentacoesDesc(movimentacoes);
+
   const volumetryByDate = React.useMemo(() => {
     const map: Record<string, { total: number, hibrido: number }> = {};
-    movimentacoes.forEach(m => {
+    sortedMovs.forEach(m => {
       if (!map[m.data_cadastro]) map[m.data_cadastro] = { total: 0, hibrido: 0 };
       map[m.data_cadastro].total++;
       if (m.desembarque_hibrido === 'Sim') map[m.data_cadastro].hibrido++;
     });
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [movimentacoes]);
+  }, [sortedMovs]);
 
-  // All companies market share
   const marketShare = React.useMemo(() => {
     const map: Record<string, number> = {};
-    movimentacoes.forEach(m => {
+    sortedMovs.forEach(m => {
       map[m.nome_companhia] = (map[m.nome_companhia] || 0) + 1;
     });
-    const total = movimentacoes.length || 1;
+    const total = sortedMovs.length || 1;
     return Object.entries(map)
       .map(([nome, count]) => ({ nome, count, percent: total > 0 ? (count / total) * 100 : 0 }))
       .sort((a, b) => b.count - a.count);
-  }, [movimentacoes]);
+  }, [sortedMovs]);
 
   return (
     <div style={{ backgroundColor: '#ffffff', fontFamily: 'sans-serif', color: '#0f172a', padding: '20px' }}>
       <ReportHeader
         title={title}
         periodo={periodo}
-        subtitle="Indicadores Gerenciais de Performance (BI)"
+        subtitle="Indicadores Gerenciais de Performance (BI - Organizado ISO Desc)"
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
@@ -192,7 +203,7 @@ export const ManagementReport: React.FC<ReportProps> = ({ stats, movimentacoes, 
 
         <section className="avoid-break">
           <h3 style={{ fontSize: '14px', fontWeight: '900', color: '#082f49', textTransform: 'uppercase', borderLeft: '4px solid #f59e0b', paddingLeft: '12px', marginBottom: '16px' }}>
-            Volumetria Diária e Utilização Híbrida
+            Volumetria Diária e Utilização Híbrida (ISO 8601 Desc)
           </h3>
           <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
             <thead style={{ backgroundColor: '#f1f5f9', color: '#334155' }}>
@@ -224,88 +235,15 @@ export const ManagementReport: React.FC<ReportProps> = ({ stats, movimentacoes, 
   );
 };
 
-export const AirlineSpecificReport: React.FC<ReportProps & { airlineName: string }> = ({ stats, movimentacoes, periodo, airlineName }) => {
-  const airlineData = React.useMemo(() => {
-    return movimentacoes.filter(m => m.nome_companhia === airlineName);
-  }, [movimentacoes, airlineName]);
-
-  const airlineStats = React.useMemo(() => {
-    const total = airlineData.length;
-    const hibrido = airlineData.filter(m => m.desembarque_hibrido === 'Sim').length;
-    return {
-      total,
-      hibrido,
-      taxa: total > 0 ? (hibrido / total) * 100 : 0
-    };
-  }, [airlineData]);
-
-  return (
-    <div style={{ backgroundColor: '#ffffff', fontFamily: 'sans-serif', color: '#0f172a', padding: '20px' }}>
-      <ReportHeader
-        title={`Relatório por Companhia: ${airlineName}`}
-        periodo={periodo}
-        subtitle="Detalhamento Operacional de Operadora"
-      />
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
-          <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '12px', backgroundColor: '#f8fafc' }}>
-            <p style={{ fontSize: '9px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Movimentações em CGB</p>
-            <p style={{ fontSize: '24px', fontWeight: '900', color: '#0c4a6e' }}>{airlineStats.total}</p>
-          </div>
-          <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '12px', backgroundColor: '#f8fafc' }}>
-            <p style={{ fontSize: '9px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Utilização de Híbrido</p>
-            <p style={{ fontSize: '24px', fontWeight: '900', color: '#d97706' }}>{airlineStats.hibrido}</p>
-          </div>
-          <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '12px', backgroundColor: '#f8fafc' }}>
-            <p style={{ fontSize: '9px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Média de Híbrido %</p>
-            <p style={{ fontSize: '24px', fontWeight: '900', color: '#1e293b' }}>{airlineStats.taxa.toFixed(1)}%</p>
-          </div>
-        </section>
-
-        <section>
-          <h3 style={{ fontSize: '12px', fontWeight: '900', color: '#082f49', textTransform: 'uppercase', marginBottom: '12px' }}>Histórico de Aeronaves / Matrículas</h3>
-          <table style={{ width: '100%', fontSize: '9px', borderCollapse: 'collapse' }}>
-            <thead style={{ backgroundColor: '#0c4a6e', color: '#ffffff' }}>
-              <tr>
-                <th style={{ padding: '8px 12px', textAlign: 'left', width: '128px' }}>Data/Hora</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left', width: '96px' }}>Matrícula</th>
-                <th style={{ padding: '8px 12px', textAlign: 'center', width: '80px' }}>Box</th>
-                <th style={{ padding: '8px 12px', textAlign: 'center', width: '96px' }}>Desembarque</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>Equipamento / Observação</th>
-              </tr>
-            </thead>
-            <tbody style={{ border: '1px solid #e2e8f0' }}>
-              {airlineData.map((m) => (
-                <tr key={m.id_registro} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '8px 12px', fontWeight: '500' }}>{m.data_cadastro.split('-').reverse().join('/')} {m.horario_cadastro}</td>
-                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: '900' }}>{m.matricula}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: '700' }}>{m.posicao_patio || '—'}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                    <span style={{ color: m.desembarque_hibrido === 'Sim' ? '#d97706' : '#0369a1', fontWeight: '700' }}>
-                      {m.desembarque_hibrido === 'Sim' ? 'HÍBRIDO' : 'PADRÃO'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '8px 12px', color: '#64748b', fontStyle: 'italic' }}>{m.tipo_aeronave || m.observacoes || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
-
-      <ReportFooter />
-    </div>
-  );
-};
-
 export const ShiftHandoverReport: React.FC<ReportProps> = ({ movimentacoes, stats, periodo }) => {
+  const sortedMovs = sortMovimentacoesDesc(movimentacoes);
+
   return (
     <div style={{ backgroundColor: '#ffffff', fontFamily: 'sans-serif', color: '#0f172a', padding: '20px' }}>
       <ReportHeader
         title="Relatório de Passagem de Turno"
         periodo={periodo}
-        subtitle="Resumo de Atividades Operacionais"
+        subtitle="Resumo de Atividades Operacionais (ISO 8601 Desc)"
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -337,11 +275,11 @@ export const ShiftHandoverReport: React.FC<ReportProps> = ({ movimentacoes, stat
         </section>
 
         <section>
-          <h3 style={{ fontSize: '12px', fontWeight: '900', color: '#082f49', textTransform: 'uppercase', marginBottom: '12px' }}>Últimas Movimentações (Cronológico)</h3>
+          <h3 style={{ fontSize: '12px', fontWeight: '900', color: '#082f49', textTransform: 'uppercase', marginBottom: '12px' }}>Últimas Movimentações (ISO 8601 Descendente)</h3>
           <table style={{ width: '100%', fontSize: '9px', borderCollapse: 'collapse' }}>
             <thead style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
               <tr>
-                <th style={{ padding: '8px', textAlign: 'left', width: '96px' }}>Hora</th>
+                <th style={{ padding: '8px', textAlign: 'left', width: '96px' }}>Data/Hora</th>
                 <th style={{ padding: '8px', textAlign: 'left', width: '96px' }}>Matrícula</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>Empresa</th>
                 <th style={{ padding: '8px', textAlign: 'center', width: '80px' }}>Box</th>
@@ -349,9 +287,11 @@ export const ShiftHandoverReport: React.FC<ReportProps> = ({ movimentacoes, stat
               </tr>
             </thead>
             <tbody style={{ border: '1px solid #e2e8f0' }}>
-              {movimentacoes.slice(0, 15).map((m) => (
+              {sortedMovs.slice(0, 15).map((m) => (
                 <tr key={m.id_registro} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '8px', fontWeight: '700' }}>{m.horario_cadastro}</td>
+                  <td style={{ padding: '8px', fontWeight: '700' }}>
+                    {m.data_cadastro ? m.data_cadastro.split('-').reverse().join('/') : ''} {m.horario_cadastro}
+                  </td>
                   <td style={{ padding: '8px', fontFamily: 'monospace', fontWeight: '900' }}>{m.matricula}</td>
                   <td style={{ padding: '8px', fontWeight: '500' }}>{m.nome_companhia}</td>
                   <td style={{ padding: '8px', textAlign: 'center', fontWeight: '700' }}>{m.posicao_patio || '—'}</td>
@@ -363,32 +303,81 @@ export const ShiftHandoverReport: React.FC<ReportProps> = ({ movimentacoes, stat
             </tbody>
           </table>
         </section>
+      </div>
 
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
-          <div style={{ border: '2px solid #f1f5f9', padding: '20px', borderRadius: '16px', height: '140px', position: 'relative', backgroundColor: '#f8fafc' }}>
-            <h3 style={{ fontSize: '10px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', position: 'absolute', top: '-8px', left: '16px', backgroundColor: '#ffffff', padding: '0 8px' }}>
-              Pendências e Alertas para o Próximo Turno
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ width: '100%', borderBottom: '1px solid #e2e8f0', height: '24px' }}></div>
-              <div style={{ width: '100%', borderBottom: '1px solid #e2e8f0', height: '24px' }}></div>
-            </div>
+      <ReportFooter />
+    </div>
+  );
+};
+
+export const AirlineSpecificReport: React.FC<ReportProps & { airlineName: string }> = ({ stats, movimentacoes, periodo, airlineName }) => {
+  const sortedMovs = sortMovimentacoesDesc(movimentacoes);
+  const airlineData = React.useMemo(() => {
+    return sortedMovs.filter(m => m.nome_companhia === airlineName);
+  }, [sortedMovs, airlineName]);
+
+  const airlineStats = React.useMemo(() => {
+    const total = airlineData.length;
+    const hibrido = airlineData.filter(m => m.desembarque_hibrido === 'Sim').length;
+    return {
+      total,
+      hibrido,
+      taxa: total > 0 ? (hibrido / total) * 100 : 0
+    };
+  }, [airlineData]);
+
+  return (
+    <div style={{ backgroundColor: '#ffffff', fontFamily: 'sans-serif', color: '#0f172a', padding: '20px' }}>
+      <ReportHeader
+        title={`Relatório por Companhia: ${airlineName}`}
+        periodo={periodo}
+        subtitle="Detalhamento Operacional (ISO 8601 Desc)"
+      />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+          <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '12px', backgroundColor: '#f8fafc' }}>
+            <p style={{ fontSize: '9px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Movimentações em CGB</p>
+            <p style={{ fontSize: '24px', fontWeight: '900', color: '#0c4a6e' }}>{airlineStats.total}</p>
+          </div>
+          <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '12px', backgroundColor: '#f8fafc' }}>
+            <p style={{ fontSize: '9px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Utilização de Híbrido</p>
+            <p style={{ fontSize: '24px', fontWeight: '900', color: '#d97706' }}>{airlineStats.hibrido}</p>
+          </div>
+          <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '12px', backgroundColor: '#f8fafc' }}>
+            <p style={{ fontSize: '9px', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Média de Híbrido %</p>
+            <p style={{ fontSize: '24px', fontWeight: '900', color: '#1e293b' }}>{airlineStats.taxa.toFixed(1)}%</p>
           </div>
         </section>
 
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginTop: '24px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '8px' }}>
-              <p style={{ fontSize: '10px', fontWeight: '900', color: '#1e293b', textTransform: 'uppercase' }}>Agente Saindo</p>
-              <p style={{ fontSize: '8px', color: '#94a3b8', textTransform: 'uppercase', fontStyle: 'italic' }}>Assinatura / Carimbo</p>
-            </div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ borderTop: '1px solid #94a3b8', paddingTop: '8px' }}>
-              <p style={{ fontSize: '10px', fontWeight: '900', color: '#1e293b', textTransform: 'uppercase' }}>Agente Entrando</p>
-              <p style={{ fontSize: '8px', color: '#94a3b8', textTransform: 'uppercase', fontStyle: 'italic' }}>Assinatura / Carimbo</p>
-            </div>
-          </div>
+        <section>
+          <h3 style={{ fontSize: '12px', fontWeight: '900', color: '#082f49', textTransform: 'uppercase', marginBottom: '12px' }}>Histórico de Aeronaves / Matrículas (ISO 8601 Desc)</h3>
+          <table style={{ width: '100%', fontSize: '9px', borderCollapse: 'collapse' }}>
+            <thead style={{ backgroundColor: '#0c4a6e', color: '#ffffff' }}>
+              <tr>
+                <th style={{ padding: '8px 12px', textAlign: 'left', width: '128px' }}>Data/Hora</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', width: '96px' }}>Matrícula</th>
+                <th style={{ padding: '8px 12px', textAlign: 'center', width: '80px' }}>Box</th>
+                <th style={{ padding: '8px 12px', textAlign: 'center', width: '96px' }}>Desembarque</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>Equipamento / Observação</th>
+              </tr>
+            </thead>
+            <tbody style={{ border: '1px solid #e2e8f0' }}>
+              {airlineData.map((m) => (
+                <tr key={m.id_registro} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '8px 12px', fontWeight: '500' }}>{m.data_cadastro ? m.data_cadastro.split('-').reverse().join('/') : ''} {m.horario_cadastro}</td>
+                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: '900' }}>{m.matricula}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: '700' }}>{m.posicao_patio || '—'}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                    <span style={{ color: m.desembarque_hibrido === 'Sim' ? '#d97706' : '#0369a1', fontWeight: '700' }}>
+                      {m.desembarque_hibrido === 'Sim' ? 'HÍBRIDO' : 'PADRÃO'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '8px 12px', color: '#64748b', fontStyle: 'italic' }}>{m.tipo_aeronave || m.observacoes || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       </div>
 

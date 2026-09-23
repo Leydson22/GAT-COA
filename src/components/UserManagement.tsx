@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, Shield, User, Trash2, RefreshCw, UserCheck, UserX, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Users, Shield, User, Trash2, RefreshCw, UserCheck, UserX, ShieldCheck, ShieldAlert, ArrowLeft } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -10,7 +10,11 @@ interface Profile {
   created_at: string;
 }
 
-export const UserManagement: React.FC = () => {
+interface UserManagementProps {
+  onClose?: () => void;
+}
+
+export const UserManagement: React.FC<UserManagementProps> = ({ onClose }) => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -104,25 +108,35 @@ export const UserManagement: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto w-full animate-in fade-in duration-300 pb-20 px-2 sm:px-0">
-      {/* Header Card */}
-      <div className="bg-sky-950 text-white p-6 sm:p-8 rounded-[32px] shadow-xl relative overflow-hidden border border-sky-900">
+      {/* Header Card (Teal matching Equipe tile color) */}
+      <div className="bg-teal-600 text-white p-6 sm:p-8 rounded-[32px] shadow-xl relative overflow-hidden border border-teal-500">
         <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-               <div className="p-3 bg-amber-400 text-sky-950 rounded-2xl shadow-md"><Users className="w-6 h-6" /></div>
+               <div className="p-3 bg-white/20 rounded-2xl shadow-md"><Users className="w-6 h-6 text-white" /></div>
                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">Gestão de Equipe & Usuários</h2>
             </div>
-            <p className="text-sky-300 text-xs font-bold uppercase tracking-widest pl-1">Aprovação de acessos e permissões do aeroporto</p>
+            <p className="text-teal-100 text-xs font-bold uppercase tracking-widest pl-1">Aprovação de acessos e permissões do aeroporto</p>
           </div>
-          <button
-            onClick={fetchProfiles}
-            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all active:scale-95 text-xs font-black uppercase tracking-wider border border-white/10 cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span>Atualizar</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchProfiles}
+              className="flex items-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all active:scale-95 text-xs font-black uppercase tracking-wider border border-white/20 cursor-pointer text-white shadow-md"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>Atualizar</span>
+            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="flex items-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all active:scale-95 text-xs font-black uppercase tracking-wider border border-white/20 cursor-pointer text-white shadow-md"
+              >
+                <ArrowLeft className="w-4 h-4" /> Voltar
+              </button>
+            )}
+          </div>
         </div>
-        <div className="absolute top-0 right-0 w-48 h-48 bg-amber-400/5 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none"></div>
       </div>
 
       {/* Admin Notice */}
@@ -146,7 +160,7 @@ export const UserManagement: React.FC = () => {
         <div className="divide-y divide-slate-100">
           {loading ? (
             <div className="p-20 text-center flex flex-col items-center gap-3">
-              <RefreshCw className="w-8 h-8 text-sky-600 animate-spin" />
+              <RefreshCw className="w-8 h-8 text-teal-600 animate-spin" />
               <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Carregando usuários...</span>
             </div>
           ) : profiles.length === 0 ? (
@@ -156,13 +170,13 @@ export const UserManagement: React.FC = () => {
               <div key={profile.id} className="p-4 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-50/80 transition-colors group">
                 {/* User Info */}
                 <div className="flex items-center gap-4 overflow-hidden">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border ${profile.role === 'admin' ? 'bg-sky-100 text-sky-700 border-sky-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border ${profile.role === 'admin' ? 'bg-teal-100 text-teal-700 border-teal-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                     {profile.role === 'admin' ? <Shield className="w-6 h-6" /> : <User className="w-6 h-6" />}
                   </div>
                   <div className="overflow-hidden space-y-1">
                     <span className="block text-sm sm:text-base font-black text-slate-900 truncate tracking-tight">{profile.email}</span>
                     <div className="flex items-center gap-2 flex-wrap">
-                       <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest border ${profile.role === 'admin' ? 'bg-sky-600 text-white border-sky-700 shadow-2xs' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                       <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest border ${profile.role === 'admin' ? 'bg-teal-700 text-white border-teal-800 shadow-2xs' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                          {profile.role === 'admin' ? 'Administrador' : 'Operador'}
                        </span>
                        <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest border ${profile.approved ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-amber-100 text-amber-800 border-amber-200'}`}>
@@ -195,7 +209,7 @@ export const UserManagement: React.FC = () => {
                     onClick={() => toggleRole(profile)}
                     className={`p-3 rounded-2xl transition-all shadow-xs border cursor-pointer active:scale-95 ${
                       profile.role === 'admin'
-                        ? 'bg-sky-600 text-white border-sky-700 hover:bg-sky-700'
+                        ? 'bg-teal-700 text-white border-teal-800 hover:bg-teal-800'
                         : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
                     }`}
                     title={profile.role === 'admin' ? 'Administrador (Clique para remover privilégio)' : 'Operador (Clique para tornar Administrador)'}

@@ -2,7 +2,7 @@
 
 **Sistema:** Gestão e Acompanhamento de Pátio - COA  
 **Aeroporto:** Aeroporto Internacional de Cuiabá / Marechal Rondon (CGB - SBCY)  
-**Versão Atual:** `v1.8.2`  
+**Versão Atual:** `v1.9.0`  
 **Data:** 18 de Setembro de 2026  
 **Linguagem & Frameworks:** React 19, TypeScript, Tailwind CSS v4, Recharts, Lucide Icons, Capacitor v8  
 
@@ -36,6 +36,12 @@ O sistema opera com múltiplas camadas de dados para garantir resiliência, segu
 ---
 
 ## 4. Histórico de Versões e Versionamento
+
+### Versão 1.9.0 — (18/09/2026)
+- **Painel Executivo / BI Administrativo:** Nova tela inicial dedicada para administradores, contendo rankings Top 5 (Colaboradores, Companhias Aéreas, Boxes/Posições e Modelos de Aeronaves) com visualização interativa em Lista (progresso), Barras, Pizza e Linha.
+- **Sincronização SIV em Tempo Real:** Integração de servidor proxy (`/api/siv-proxy`) conectado ao painel oficial de chegadas (`siv.socicam.azul.dev/250`) com extração de voos, origens, horários e boxes, modal de confirmação de importação e suporte multi-tier robusto.
+- **Padronização Visual Responsiva & Cores por Menu:** Banners de cabeçalho unificados (`rounded-[32px]`) com cores dinâmicas correspondentes aos blocos do menu inicial (800x600+ otimizado para tablets e computadores).
+- **Paginação Aprimorada e Filtros de Período:** Seletor de quantidade por página (5, 10, 20, 50, 100) em todas as tabelas e filtros comerciais de dia, semana e mês rigorosos.
 
 ### Versão 1.8.2 — (18/09/2026)
 - **Correção e Otimização de Sincronização Supabase:** Ajustes robustos nas políticas RLS e inclusão da coluna `user_email` na tabela `movimentacoes` para garantir sucesso absoluto no upload/sync de dados em nuvem.

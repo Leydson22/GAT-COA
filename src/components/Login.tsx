@@ -177,7 +177,7 @@ export const Login: React.FC = () => {
         </form>
 
         <p className="text-center text-sky-400/60 text-[10px] font-bold uppercase tracking-widest">
-          v1.8.2 • © 2026 COA Operações
+          v1.9.0 • © 2026 COA Operações
         </p>
       </div>
     </div>
