@@ -2,7 +2,7 @@
 
 **Sistema:** Gestão e Acompanhamento de Pátio - COA  
 **Aeroporto:** Aeroporto Internacional de Cuiabá / Marechal Rondon (CGB - SBCY)  
-**Versão Atual:** `v1.9.0`  
+**Versão Atual:** `v1.9.1`  
 **Data:** 18 de Setembro de 2026  
 **Linguagem & Frameworks:** React 19, TypeScript, Tailwind CSS v4, Recharts, Lucide Icons, Capacitor v8  
 
@@ -37,34 +37,30 @@ O sistema opera com múltiplas camadas de dados para garantir resiliência, segu
 
 ## 4. Histórico de Versões e Versionamento
 
+### Versão 1.9.1 — (18/09/2026)
+- **Modo Dual SIV (Quadro CGB + Painel SIV Original Ao Vivo):** Integração de visualizador via *iframe* direto do painel oficial de chegadas (`siv.socicam.azul.dev/250`) com sincronização em tempo real.
+- **Painel Executivo / BI Administrativo Aprimorado:** Novos seletores de gráficos por item (Lista, Barra, Pizza e Linha) para Colaboradores, Companhias, Posições/Boxes e Modelos de Aeronaves, otimizados sem barras de rolagem.
+- **Padronização Visual Completa:** Unificação de todos os cabeçalhos com o botão `<-- VOLTAR` e cores de banner idênticas às dos blocos do menu inicial.
+
 ### Versão 1.9.0 — (18/09/2026)
-- **Painel Executivo / BI Administrativo:** Nova tela inicial dedicada para administradores, contendo rankings Top 5 (Colaboradores, Companhias Aéreas, Boxes/Posições e Modelos de Aeronaves) com visualização interativa em Lista (progresso), Barras, Pizza e Linha.
-- **Sincronização SIV em Tempo Real:** Integração de servidor proxy (`/api/siv-proxy`) conectado ao painel oficial de chegadas (`siv.socicam.azul.dev/250`) com extração de voos, origens, horários e boxes, modal de confirmação de importação e suporte multi-tier robusto.
-- **Padronização Visual Responsiva & Cores por Menu:** Banners de cabeçalho unificados (`rounded-[32px]`) com cores dinâmicas correspondentes aos blocos do menu inicial (800x600+ otimizado para tablets e computadores).
-- **Paginação Aprimorada e Filtros de Período:** Seletor de quantidade por página (5, 10, 20, 50, 100) em todas as tabelas e filtros comerciais de dia, semana e mês rigorosos.
+- **Painel Executivo / BI Administrativo:** Nova tela inicial dedicada para administradores, contendo rankings Top 5 com visualização interativa e filtros de período (Hoje, Semana, Mês, Tudo).
+- **Sincronização SIV em Tempo Real:** Integração de servidor proxy (`/api/siv-proxy`) conectado ao painel oficial de chegadas com extração de voos e modal de confirmação de importação.
+- **Padronização Visual Responsiva & Cores por Menu:** Banners de cabeçalho unificados (`rounded-[32px]`) com cores dinâmicas correspondentes aos blocos do menu inicial.
 
 ### Versão 1.8.2 — (18/09/2026)
-- **Correção e Otimização de Sincronização Supabase:** Ajustes robustos nas políticas RLS e inclusão da coluna `user_email` na tabela `movimentacoes` para garantir sucesso absoluto no upload/sync de dados em nuvem.
-- **Dashboard Interativo e Moderno:** Aprimoramento visual completo dos gráficos analíticos (`VisualCharts.tsx`) e cartões KPI (`KPIScorecards.tsx`).
+- **Correção e Otimização de Sincronização Supabase:** Ajustes robustos nas políticas RLS e inclusão da coluna `user_email` na tabela `movimentacoes`.
+- **Dashboard Interativo e Moderno:** Aprimoramento visual completo dos gráficos analíticos e cartões KPI.
 - **Defesas Avançadas contra Bots (Segurança):** Implementação de Honeypot e Rate Limiting no formulário de cadastro.
-- **Fluxo Robusto de Aprovação de Usuários:** Controles rigorosos de aprovação de contas e restrições de acesso por perfil (RBAC) com autocriação de perfil (*Self-Healing*).
+- **Fluxo Robusto de Aprovação de Usuários:** Controles rigorosos de aprovação de contas e restrições de acesso por perfil (RBAC).
 
 ### Versão 1.6.0 — (08/09/2026)
-- **Fluxo de Aprovação de Novos Usuários:** Implementado sistema onde novos cadastros iniciam como pendentes (`approved: false`) e exigem aprovação explícita de um Administrador na tela de Gestão de Equipe.
-- **Restrição de Acessos por Nível (RBAC):** Usuários comuns (`operator`) agora têm acesso restrito estritamente a Pátio, Pousos, Relatórios e Segurança.
-- **Proteção Antirregressão de Administradores:** Adicionada trava de segurança na interface e no banco de dados que impede a exclusão ou rebaixamento do último administrador ativo no sistema.
-- **Importação Web de Backup:** Adicionado suporte completo para importação de arquivos de backup `.json` na versão web.
+- **Fluxo de Aprovação de Novos Usuários:** Implementado sistema onde novos cadastros iniciam como pendentes (`approved: false`).
+- **Restrição de Acessos por Nível (RBAC):** Usuários comuns (`operator`) com acesso restrito estritamente a Pátio, Pousos, Relatórios e Segurança.
+- **Proteção Antirregressão de Administradores:** Trava de segurança que impede a exclusão do único administrador ativo.
 
 ### Versão 1.5.0 — (13/08/2026)
 - **Integração Supabase (Cloud):** Início da migração para arquitetura Cloud Sync.
-- **Autenticação de Usuários:** Implementação de tela de Login e controle de acesso (Operador vs Administrador).
-- **Offline-First Sync:** Sistema de fila de sincronização para garantir funcionamento sem internet e envio automático de dados.
-
-### Versão 1.3.1 — (09/08/2026)
-- **Nova Identidade Visual:** Sistema renomeado para **"Gestão e Acompanhamento de Pátio - COA"**.
-- **Header Unificado:** Versão do sistema e nome oficial integrados na faixa azul superior.
-- **Otimização de PDF:** Compressão de arquivos PDF para compartilhamento mais rápido.
-- **Inclusão da FAB:** Adicionada a "Forças Armadas Brasileiras" à lista oficial.
+- **Autenticação de Usuários:** Implementação de tela de Login e controle de acesso.
 
 ### Versão 1.0.0 — (22/07/2026)
 - **Lançamento Inicial:** Dashboards executivos, gráficos Recharts e tabela analítica.

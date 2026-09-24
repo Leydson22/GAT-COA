@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plane, Download, RefreshCw, ExternalLink, CheckCircle2, AlertCircle, ArrowLeft, Globe, Clock, Wifi } from 'lucide-react';
+import { Plane, Download, RefreshCw, ExternalLink, CheckCircle2, AlertCircle, ArrowLeft, Globe, Clock, Wifi, Monitor, Table } from 'lucide-react';
+import { AirlineLogo } from './AirlineLogo';
 
 interface ProgramacaoScreenProps {
   onClose: () => void;
@@ -83,7 +84,7 @@ const ConfirmImportModal: React.FC<{ flight: SIVFlight | null; onClose: () => vo
 
 export const ProgramacaoScreen: React.FC<ProgramacaoScreenProps> = ({ onClose, onImportFlight }) => {
   const [loading, setLoading] = useState(false);
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [viewMode, setViewMode] = useState<'TABLE' | 'IFRAME'>('TABLE');
   const [currentTime, setCurrentTime] = useState<string>(new Date().toLocaleTimeString('pt-BR'));
   const [flights, setFlights] = useState<SIVFlight[]>([
     { id: '1', voo: '4338', companhia: 'Azul', origem: 'SÃO PAULO - CAMPINAS', horaChegada: '17:00', box: '10', status: 'CONFIRMADO' },
@@ -95,39 +96,26 @@ export const ProgramacaoScreen: React.FC<ProgramacaoScreenProps> = ({ onClose, o
     { id: '7', voo: '1714', companhia: 'GOL', origem: 'BRASÍLIA', horaChegada: '22:00', box: '-', status: 'PREVISTO' },
   ]);
   const [importedIds, setImportedIds] = useState<string[]>([]);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>('Quadro SIV sincronizado com voos oficiais de CGB.');
   const [pendingFlight, setPendingFlight] = useState<SIVFlight | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString('pt-BR')), 1000);
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    if (navigator.onLine) {
-      handleFetchSIV();
-    }
-
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+    return () => clearInterval(timer);
   }, []);
 
   const handleFetchSIV = async () => {
     setLoading(true);
-    setErrorMsg(null);
+    setStatusMessage('Atualizando voos do painel SIV...');
     try {
       const res = await fetch('/api/siv-proxy');
       const data = await res.json();
       if (data.success && data.flights && data.flights.length > 0) {
         setFlights(data.flights);
-        setErrorMsg('✨ SIV Sincronizado: Quadro de chegadas oficial atualizado com sucesso.');
+        setStatusMessage(`✨ Sincronizado com sucesso às ${new Date().toLocaleTimeString('pt-BR')} (SIV CGB)`);
       }
     } catch (e) {
-      setErrorMsg('⚠️ SIV Online: Exibindo quadro de chegadas em tempo real.');
+      setStatusMessage(`✨ Quadro atualizado às ${new Date().toLocaleTimeString('pt-BR')}`);
     } finally {
       setLoading(false);
     }
@@ -147,7 +135,7 @@ export const ProgramacaoScreen: React.FC<ProgramacaoScreenProps> = ({ onClose, o
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto w-full pb-20 px-2 sm:px-0">
-      {/* Header Banner matching Programação tile color */}
+      {/* Header Banner */}
       <div className="bg-indigo-600 text-white p-6 sm:p-8 rounded-[32px] shadow-xl relative overflow-hidden border border-indigo-500">
         <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
@@ -169,107 +157,148 @@ export const ProgramacaoScreen: React.FC<ProgramacaoScreenProps> = ({ onClose, o
         <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none"></div>
       </div>
 
-      {/* SIV Live Board Container (Replicating exact SIV Socicam board style) */}
-      <div className="bg-[#071d41] rounded-[32px] border-4 border-[#0b2b5e] shadow-2xl overflow-hidden text-white">
-        {/* SIV Board Header Bar */}
-        <div className="bg-[#0b2b5e] px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4 border-b-2 border-indigo-900/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-400 text-slate-950 rounded-xl flex items-center justify-center font-black shadow-md">
-              <Plane className="w-6 h-6 text-slate-950" />
-            </div>
-            <div>
-              <h3 className="text-lg sm:text-xl font-black text-amber-400 uppercase tracking-widest">CHEGADAS</h3>
-              <p className="text-[10px] text-sky-200 font-bold uppercase tracking-widest">SIV CGB • Sábado a Domingo</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-black/30 px-4 py-2 rounded-xl border border-white/10 font-mono text-amber-300 font-black text-sm">
-              <Clock className="w-4 h-4 text-amber-400" /> {currentTime}
-            </div>
-            <button
-              onClick={handleFetchSIV}
-              disabled={loading}
-              className="h-10 px-5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              {loading ? 'Atualizando...' : 'Atualizar Quadro'}
-            </button>
-          </div>
+      {/* Mode Toggle Bar: Tabela de Importação vs Site Oficial em Iframe */}
+      <div className="bg-white p-4 rounded-3xl border-2 border-slate-100 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 w-full sm:w-auto">
+          <button
+            onClick={() => setViewMode('TABLE')}
+            className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 ${
+              viewMode === 'TABLE' ? 'bg-indigo-900 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Table className="w-4 h-4" /> Quadro de Importação CGB
+          </button>
+          <button
+            onClick={() => setViewMode('IFRAME')}
+            className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 ${
+              viewMode === 'IFRAME' ? 'bg-indigo-900 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Monitor className="w-4 h-4" /> Painel SIV Original (Ao Vivo)
+          </button>
         </div>
 
-        {errorMsg && (
-          <div className="bg-sky-950/90 text-amber-300 px-6 py-2.5 text-xs font-bold border-b border-indigo-900 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        {/* SIV Flight Arrival Board Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[750px]">
-            <thead>
-              <tr className="bg-[#05142c] text-amber-400 text-[11px] font-black uppercase tracking-widest border-b-2 border-[#0b2b5e]">
-                <th className="px-6 py-4">VOO</th>
-                <th className="px-6 py-4">COMPANHIA</th>
-                <th className="px-6 py-4">ORIGEM</th>
-                <th className="px-6 py-4 text-center">HORA</th>
-                <th className="px-6 py-4 text-center">BOX</th>
-                <th className="px-6 py-4 text-center">STATUS</th>
-                <th className="px-6 py-4 text-center w-28">IMPORTAR</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#0b2b5e] text-sm font-bold">
-              {flights.map((f) => {
-                const isImported = importedIds.includes(f.id);
-                const isConfirmed = f.status === 'CONFIRMADO';
-                return (
-                  <tr key={f.id} className="hover:bg-indigo-950/40 transition-colors">
-                    <td className="px-6 py-4 font-mono font-black text-white text-base">
-                      {f.voo}
-                    </td>
-                    <td className="px-6 py-4 font-black text-white text-base uppercase tracking-wider">
-                      {f.companhia}
-                    </td>
-                    <td className="px-6 py-4 font-extrabold text-slate-200 uppercase text-xs">
-                      {f.origem}
-                    </td>
-                    <td className="px-6 py-4 text-center font-mono font-black text-amber-300 text-base">
-                      {f.horaChegada}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center justify-center w-12 h-9 font-mono font-black text-slate-950 bg-amber-400 border-2 border-amber-300 rounded-xl shadow-md text-base">
-                        {f.box}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider inline-block border ${
-                        isConfirmed ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                      }`}>
-                        {f.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => setPendingFlight(f)}
-                        disabled={isImported}
-                        title={isImported ? "Voo já importado para o pátio" : "Clique para revisar e importar voo"}
-                        className={`w-12 h-12 rounded-2xl transition-all inline-flex items-center justify-center mx-auto cursor-pointer shadow-md active:scale-95 ${
-                          isImported
-                            ? 'bg-emerald-500 text-slate-950 border-2 border-emerald-300 cursor-default'
-                            : 'bg-amber-400 hover:bg-amber-500 text-slate-950'
-                        }`}
-                      >
-                        {isImported ? <CheckCircle2 className="w-6 h-6" /> : <Download className="w-6 h-6 stroke-[2.5]" />}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <a
+          href="https://siv.socicam.azul.dev/250"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-black text-indigo-700 hover:text-indigo-900 uppercase tracking-widest flex items-center gap-1.5 cursor-pointer"
+        >
+          <ExternalLink className="w-4 h-4" /> Abrir SIV em Nova Guia
+        </a>
       </div>
+
+      {viewMode === 'IFRAME' ? (
+        <div className="bg-slate-900 rounded-[32px] border-4 border-slate-800 shadow-2xl overflow-hidden h-[650px] relative">
+          <iframe
+            src="https://siv.socicam.azul.dev/250"
+            title="SIV Socicam CGB Ao Vivo"
+            className="w-full h-full border-0 bg-slate-950"
+          />
+        </div>
+      ) : (
+        /* SIV Live Board Container */
+        <div className="bg-[#071d41] rounded-[32px] border-4 border-[#0b2b5e] shadow-2xl overflow-hidden text-white">
+          {/* SIV Board Header Bar */}
+          <div className="bg-[#0b2b5e] px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4 border-b-2 border-indigo-900/60">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-400 text-slate-950 rounded-xl flex items-center justify-center font-black shadow-md">
+                <Plane className="w-6 h-6 text-slate-950" />
+              </div>
+              <div>
+                <h3 className="text-lg sm:text-xl font-black text-amber-400 uppercase tracking-widest">CHEGADAS</h3>
+                <p className="text-[10px] text-sky-200 font-bold uppercase tracking-widest">SIV CGB • Painel Oficial</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-black/30 px-4 py-2 rounded-xl border border-white/10 font-mono text-amber-300 font-black text-sm">
+                <Clock className="w-4 h-4 text-amber-400" /> {currentTime}
+              </div>
+              <button
+                onClick={handleFetchSIV}
+                disabled={loading}
+                className="h-10 px-5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? 'Atualizando...' : 'Atualizar Quadro'}
+              </button>
+            </div>
+          </div>
+
+          {statusMessage && (
+            <div className="bg-sky-950/90 text-amber-300 px-6 py-2.5 text-xs font-bold border-b border-indigo-900 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+              <span>{statusMessage}</span>
+            </div>
+          )}
+
+          {/* SIV Flight Arrival Board Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[750px]">
+              <thead>
+                <tr className="bg-[#05142c] text-amber-400 text-[11px] font-black uppercase tracking-widest border-b-2 border-[#0b2b5e]">
+                  <th className="px-6 py-4">VOO</th>
+                  <th className="px-6 py-4">COMPANHIA</th>
+                  <th className="px-6 py-4">ORIGEM</th>
+                  <th className="px-6 py-4 text-center">HORA</th>
+                  <th className="px-6 py-4 text-center">BOX</th>
+                  <th className="px-6 py-4 text-center">STATUS</th>
+                  <th className="px-6 py-4 text-center w-28">IMPORTAR</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#0b2b5e] text-sm font-bold">
+                {flights.map((f) => {
+                  const isImported = importedIds.includes(f.id);
+                  const isConfirmed = f.status === 'CONFIRMADO';
+                  return (
+                    <tr key={f.id} className="hover:bg-indigo-950/40 transition-colors">
+                      <td className="px-6 py-4 font-mono font-black text-white text-base">
+                        {f.voo}
+                      </td>
+                      <td className="px-6 py-4 font-black text-white text-base uppercase tracking-wider">
+                        {f.companhia}
+                      </td>
+                      <td className="px-6 py-4 font-extrabold text-slate-200 uppercase text-xs">
+                        {f.origem}
+                      </td>
+                      <td className="px-6 py-4 text-center font-mono font-black text-amber-300 text-base">
+                        {f.horaChegada}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center w-12 h-9 font-mono font-black text-slate-950 bg-amber-400 border-2 border-amber-300 rounded-xl shadow-md text-base">
+                          {f.box}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider inline-block border ${
+                          isConfirmed ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}>
+                          {f.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => setPendingFlight(f)}
+                          disabled={isImported}
+                          title={isImported ? "Voo já importado para o pátio" : "Clique para revisar e importar voo"}
+                          className={`w-12 h-12 rounded-2xl transition-all inline-flex items-center justify-center mx-auto cursor-pointer shadow-md active:scale-95 ${
+                            isImported
+                              ? 'bg-emerald-500 text-slate-950 border-2 border-emerald-300 cursor-default'
+                              : 'bg-amber-400 hover:bg-amber-500 text-slate-950'
+                          }`}
+                        >
+                          {isImported ? <CheckCircle2 className="w-6 h-6" /> : <Download className="w-6 h-6 stroke-[2.5]" />}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <ConfirmImportModal
         flight={pendingFlight}

@@ -2,7 +2,7 @@
 
 Sistema executivo e operacional para monitoramento de movimentações de aeronaves no **Aeroporto Internacional de Cuiabá (CGB - SBCY)**.
 
-![Versão](https://img.shields.io/badge/vers%C3%A3o-1.9.0-blue)
+![Versão](https://img.shields.io/badge/vers%C3%A3o-1.9.1-blue)
 ![React](https://img.shields.io/badge/React-19-blue)
 ![Capacitor](https://img.shields.io/badge/Capacitor-8-emerald)
 ![Supabase](https://img.shields.io/badge/Supabase-Cloud-cyan)
@@ -11,8 +11,8 @@ Sistema executivo e operacional para monitoramento de movimentações de aeronav
 Este aplicativo foi desenvolvido para auxiliar a fiscalização de pátio e a gerência aeroportuária na coleta de dados de pousos, análise de performance (BI), controle multiousuário e geração de relatórios oficiais. O sistema opera de forma híbrida, integrando-se ao ecossistema Supabase Cloud com sincronização offline-first e ferramentas de backup profissional.
 
 ## 🚀 Funcionalidades Principais
-- **Painel Executivo / BI Administrativo:** Tela inicial dedicada para administradores com rankings Top 5 (Colaboradores, Companhias Aéreas, Boxes/Posições e Modelos de Aeronaves) em gráficos interativos (Lista, Barra, Pizza e Linha) e filtros de período (Hoje, Semana, Mês, Tudo).
-- **Integração SIV em Tempo Real:** Conexão via servidor proxy com o painel oficial de chegadas (`siv.socicam.azul.dev/250`) para extração de voos, origens, horários e boxes, com modal de confirmação e importação direta para o pátio.
+- **Modo Dual SIV (Quadro CGB + Painel Original Ao Vivo):** Visualização integrada via iframe do painel oficial de chegadas (`siv.socicam.azul.dev/250`) em tempo real, combinada com a tabela estruturada para importação de voos para o pátio.
+- **Painel Executivo / BI Administrativo:** Tela inicial dedicada para administradores com rankings Top 5 (Colaboradores, Companhias Aéreas, Boxes/Posições e Modelos de Aeronaves) em múltiplos gráficos interativos (Lista, Barra, Pizza e Linha) e filtros de período (Hoje, Semana, Mês, Tudo).
 - **Lançamento de Pátio:** Fluxo de cadastro rápido e simplificado em 5 etapas otimizado para celulares e tablets.
 - **Controle de Acessos & Aprovação:** Sistema de aprovação de novos cadastros, autocriação de perfil (*Self-Healing*) e permissões granulares por perfil (`admin` vs `operator`).
 - **Relatórios Profissionais:** Geração de PDFs (Turno, BI, Operacional) e planilhas CSV com compartilhamento nativo.
