@@ -15,6 +15,8 @@ import { ConfirmDeleteModal } from './components/ConfirmDeleteModal';
 import { SystemLogViewer } from './components/SystemLogViewer';
 import { UserManagement } from './components/UserManagement';
 import { DataManagementPanel } from './components/DataManagementPanel';
+import { ProgramacaoScreen } from './components/ProgramacaoScreen';
+import { AdminDashboardScreen } from './components/AdminDashboardScreen';
 import { DailyOperationalReport, ManagementReport, ShiftHandoverReport, AirlineSpecificReport } from './components/ReportTemplates';
 import { checkAndRunAutoBackup, saveInternalSnapshot } from './services/dataManagementService';
 import { syncData, addToSyncQueue } from './services/syncService';
@@ -22,16 +24,28 @@ import { getAirlines } from './services/airlineService';
 import { MOCK_MOVIMENTACOES } from './data/mockData';
 import { MovimentacaoAeronave, FiltrosDashboard, StatSummary, AuditLog, CompanhiaAerea } from './types';
 import { getAuditLogs, addAuditLog, clearAuditLogs } from './services/auditLogService';
-import { Smartphone, ListOrdered, BarChart3, ChevronRight, Plane, Download, LogOut, ShieldCheck, Loader2, Users, Clock } from 'lucide-react';
+import { Smartphone, ListOrdered, BarChart3, ChevronRight, Plane, Download, LogOut, ShieldCheck, Loader2, Users, Clock, Globe } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 
 const STORAGE_KEY = 'cgb_movimentacoes_data_v1';
-type ActiveScreen = 'home' | 'cadastro' | 'pousos' | 'relatorios' | 'exportar' | 'seguranca' | 'usuarios';
+type ActiveScreen = 'home' | 'cadastro' | 'pousos' | 'relatorios' | 'exportar' | 'seguranca' | 'usuarios' | 'programacao';
 
 export default function App() {
-  const [session, setSession] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<{ role: 'admin' | 'operator'; approved: boolean } | null>(null);
+  const [session, setSession] = useState<any>(() => {
+    try {
+      const cached = localStorage.getItem('cgb_cached_session');
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) { return null; }
+  });
+
+  const [userProfile, setUserProfile] = useState<{ role: 'admin' | 'operator'; approved: boolean } | null>(() => {
+    try {
+      const cached = localStorage.getItem('cgb_cached_profile');
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) { return null; }
+  });
+
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>('home');
   const [autoReportMode, setAutoReportMode] = useState<'OPERATIONAL' | 'MANAGEMENT' | 'SHIFTHANDOVER' | 'AIRLINE' | null>(null);
@@ -39,42 +53,71 @@ export default function App() {
   const [companhias, setCompanhias] = useState<CompanhiaAerea[]>(() => getAirlines());
   const [filtros, setFiltros] = useState<FiltrosDashboard>({ nome_companhia: 'TODAS', desembarque_hibrido: 'TODOS', dataInicio: '', dataFim: '', buscaMatricula: '' });
 
-  // 1. Auth Listener & Online Sync Trigger
+  // 1. Auth & Persistent Offline Session
   useEffect(() => {
     const fetchProfile = async (uid: string, userEmail?: string) => {
-      let { data, error } = await supabase.from('profiles').select('role, approved').eq('id', uid).single();
-      if (error || !data) {
-        const { data: newProfile } = await supabase
-          .from('profiles')
-          .upsert({ id: uid, email: userEmail || '', role: 'operator', approved: false })
-          .select('role, approved')
-          .single();
-        data = newProfile;
+      if (!navigator.onLine) {
+        const cachedProfile = localStorage.getItem('cgb_cached_profile');
+        if (cachedProfile) {
+          setUserProfile(JSON.parse(cachedProfile));
+        } else {
+          setUserProfile({ role: 'operator', approved: true });
+        }
+        return;
       }
-      setUserProfile(data);
+
+      try {
+        let { data, error } = await supabase.from('profiles').select('role, approved').eq('id', uid).single();
+        if (error || !data) {
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .upsert({ id: uid, email: userEmail || '', role: 'operator', approved: false })
+            .select('role, approved')
+            .single();
+          data = newProfile;
+        }
+        if (data) {
+          setUserProfile(data);
+          localStorage.setItem('cgb_cached_profile', JSON.stringify(data));
+        }
+      } catch (err) {
+        const cachedProfile = localStorage.getItem('cgb_cached_profile');
+        if (cachedProfile) setUserProfile(JSON.parse(cachedProfile));
+      }
     };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        fetchProfile(session.user.id, session.user.email);
-        syncData();
+    const initAuth = async () => {
+      try {
+        if (navigator.onLine) {
+          const { data: { session: remoteSession } } = await supabase.auth.getSession();
+          if (remoteSession) {
+            setSession(remoteSession);
+            localStorage.setItem('cgb_cached_session', JSON.stringify(remoteSession));
+            await fetchProfile(remoteSession.user.id, remoteSession.user.email);
+            syncData();
+          }
+        }
+      } catch (err) {
+      } finally {
+        setIsAuthLoading(false);
       }
-      setIsAuthLoading(false);
-    });
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        fetchProfile(session.user.id, session.user.email);
-        syncData();
-      } else {
-        setUserProfile(null);
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, remoteSession) => {
+      if (remoteSession) {
+        setSession(remoteSession);
+        localStorage.setItem('cgb_cached_session', JSON.stringify(remoteSession));
+        await fetchProfile(remoteSession.user.id, remoteSession.user.email);
+        if (navigator.onLine) syncData();
       }
     });
 
     const handleOnline = () => {
-      syncData();
+      if (navigator.onLine) {
+        syncData();
+      }
     };
     window.addEventListener('online', handleOnline);
 
@@ -110,7 +153,6 @@ export default function App() {
     }
   }, [activeScreen]);
 
-  // Role-based filtering: Operators can only view and modify their own data
   const movimentacoesPermitidas = useMemo(() => {
     if (userProfile?.role === 'operator' && session?.user?.id) {
       return movimentacoes.filter(item => !item.user_id || item.user_id === session.user.id);
@@ -132,7 +174,11 @@ export default function App() {
       if (filtros.dataFim && item.data_cadastro > filtros.dataFim) return false;
       return true;
     });
-    return [...filtradas].sort((a, b) => `${b.data_cadastro}T${b.horario_cadastro}`.localeCompare(`${a.data_cadastro}T${a.horario_cadastro}`));
+    return [...filtradas].sort((a, b) => {
+      const timeA = new Date(`${a.data_cadastro || '1970-01-01'}T${a.horario_cadastro || '00:00:00'}`).getTime() || 0;
+      const timeB = new Date(`${b.data_cadastro || '1970-01-01'}T${b.horario_cadastro || '00:00:00'}`).getTime() || 0;
+      return timeB - timeA;
+    });
   }, [movimentacoesPermitidas, filtros]);
 
   const stats: StatSummary = useMemo(() => {
@@ -154,8 +200,8 @@ export default function App() {
   const [selectedAirline, setSelectedAirline] = useState('');
 
   const handleOpenExport = (data?: any, filters?: any, auto?: any) => {
-    const d = data || movimentacoesOrdenadas;
-    setExportContext({ data: d, filters: filters || { dataInicio: filtros.dataInicio, dataFim: filtros.dataFim } });
+    const d = data || movimentacoesPermitidas;
+    setExportContext({ data: d, filters: { dataInicio: '', dataFim: '' } });
     setPrintData({ data: d, stats: stats, period: '' });
     setAutoReportMode(auto || null);
     setActiveScreen('exportar');
@@ -176,7 +222,7 @@ export default function App() {
       return item;
     }));
     addToSyncQueue(id);
-    syncData();
+    if (navigator.onLine) syncData();
     setAuditLogs(getAuditLogs());
   };
 
@@ -200,7 +246,7 @@ export default function App() {
     else setMovimentacoes(prev => [{ id_registro: regId, ...recordData }, ...prev]);
 
     addToSyncQueue(regId);
-    syncData();
+    if (navigator.onLine) syncData();
     addAuditLog({
       tipo: id ? 'EDICAO' : 'CRIACAO',
       nivel: 'INFO',
@@ -212,6 +258,31 @@ export default function App() {
     setAuditLogs(getAuditLogs());
   };
 
+  const handleImportFlight = (flight: { matricula: string; nome_companhia: string; horario_cadastro: string; posicao_patio: string }) => {
+    const newRecord: MovimentacaoAeronave = {
+      id_registro: `siv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      matricula: flight.matricula,
+      nome_companhia: flight.nome_companhia,
+      id_companhia: 1,
+      desembarque_hibrido: 'Não',
+      posicao_patio: flight.posicao_patio,
+      horario_cadastro: flight.horario_cadastro,
+      data_cadastro: new Date().toISOString().split('T')[0],
+      user_id: session?.user?.id || 'siv_system',
+      user_email: session?.user?.email || 'SIV Bot'
+    };
+    setMovimentacoes(prev => [newRecord, ...prev]);
+    addAuditLog({
+      tipo: 'CRIACAO',
+      nivel: 'INFO',
+      origem: 'PATIO_MOBILE',
+      usuarioDispositivo: session?.user?.email || 'SIV Bot',
+      descricao: `Importado via Programação SIV: Voo ${flight.matricula} (${flight.nome_companhia}), Box ${flight.posicao_patio}`,
+      matriculaAeronave: flight.matricula
+    });
+    alert(`✅ Voo ${flight.matricula} (${flight.nome_companhia}) importado com sucesso para o pátio de CGB!`);
+  };
+
   const handleRefreshData = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     setMovimentacoes(saved ? JSON.parse(saved) : []);
@@ -221,51 +292,24 @@ export default function App() {
   };
 
   const handleExitApp = async () => {
-    if (window.confirm("Sair?")) {
-      if (window.confirm("Backup antes de sair?")) await saveInternalSnapshot(`Backup Preventivo ${new Date().toLocaleString()}`);
-      await supabase.auth.signOut();
+    if (window.confirm("Deseja sair do sistema? Será necessário refazer o login caso queira entrar novamente.")) {
+      if (window.confirm("Deseja fazer backup antes de sair?")) await saveInternalSnapshot(`Backup Preventivo ${new Date().toLocaleString()}`);
+      localStorage.removeItem('cgb_cached_session');
+      localStorage.removeItem('cgb_cached_profile');
+      if (navigator.onLine) {
+        await supabase.auth.signOut();
+      }
+      setSession(null);
+      setUserProfile(null);
       if (Capacitor.isNativePlatform()) CapacitorApp.exitApp();
     }
   };
-
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen bg-sky-950 flex flex-col items-center justify-center text-white p-6 text-center">
-        <Loader2 className="w-10 h-10 animate-spin text-amber-400 mb-4" />
-        <p className="text-xs font-black uppercase tracking-widest opacity-50">Iniciando Sistema COA...</p>
-      </div>
-    );
-  }
-
-  if (session && (!userProfile || userProfile.approved !== true)) {
-    return (
-      <div className="min-h-screen bg-sky-950 flex flex-col items-center justify-center text-white p-6 text-center space-y-4">
-        <div className="w-16 h-16 bg-amber-400 text-sky-950 rounded-2xl flex items-center justify-center mx-auto shadow-xl">
-          <Clock className="w-8 h-8 animate-spin" />
-        </div>
-        <h2 className="text-xl font-black uppercase tracking-tight">Aprovação Pendente</h2>
-        <p className="text-xs text-sky-200 font-medium max-w-sm leading-relaxed">
-          Sua conta aguarda a aprovação de um Administrador para liberar o seu acesso ao sistema.
-        </p>
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            setSession(null);
-            setUserProfile(null);
-          }}
-          className="mt-4 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all"
-        >
-          Sair / Voltar
-        </button>
-      </div>
-    );
-  }
 
   if (!session) return <Login />;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 selection:bg-sky-200 overflow-x-hidden">
-      <div className="absolute top-0 left-0 w-full opacity-0 pointer-events-none print:opacity-100 print:relative printable-content">
+      <div id="report-container" className="absolute top-0 left-0 w-full opacity-0 pointer-events-none print:opacity-100 print:relative printable-content">
         {reportMode === 'OPERATIONAL' ? <DailyOperationalReport movimentacoes={printData.data} stats={printData.stats} periodo={printData.period} title="Geral" /> :
          reportMode === 'MANAGEMENT' ? <ManagementReport movimentacoes={printData.data} stats={printData.stats} periodo={printData.period} title="BI" /> :
          <ShiftHandoverReport movimentacoes={printData.data} stats={printData.stats} periodo={printData.period} title="Turno" />}
@@ -273,28 +317,112 @@ export default function App() {
       <Header activeScreen={activeScreen} onNavigate={setActiveScreen} />
       <main className="flex-1 flex flex-col w-full mx-auto overflow-x-hidden p-2 sm:p-6 space-y-6">
         {activeScreen === 'home' && (
-          <div className="flex-1 flex flex-col items-center justify-center my-auto py-8">
-            <div className="max-w-md w-full space-y-4 px-4 text-center">
-              <div className="grid grid-cols-1 gap-3">
-                <button onClick={() => setActiveScreen('cadastro')} className="p-4 bg-white border-2 border-sky-100 rounded-2xl flex items-center justify-between shadow-sm"><div className="flex items-center gap-3"><div className="p-3 bg-sky-800 text-white rounded-xl shadow-md"><Smartphone /></div><div className="text-left font-black text-sky-950 uppercase text-sm">Pátio</div></div><ChevronRight className="text-sky-300"/></button>
-                <button onClick={() => setActiveScreen('pousos')} className="p-4 bg-white border-2 border-amber-100 rounded-2xl flex items-center justify-between shadow-sm"><div className="flex items-center gap-3"><div className="p-3 bg-amber-400 text-sky-950 rounded-xl shadow-md"><ListOrdered /></div><div className="text-left font-black text-slate-900 uppercase text-sm">Pousos</div></div><ChevronRight className="text-amber-300"/></button>
-                <button onClick={() => handleOpenExport()} className="p-4 bg-white border-2 border-emerald-100 rounded-2xl flex items-center justify-between shadow-sm"><div className="flex items-center gap-3"><div className="p-3 bg-emerald-600 text-white rounded-xl shadow-md"><Download /></div><div className="text-left font-black text-slate-900 uppercase text-sm">Relatórios</div></div><ChevronRight className="text-emerald-300"/></button>
-                <button onClick={() => setActiveScreen('seguranca')} className="p-4 bg-white border-2 border-sky-100 rounded-2xl flex items-center justify-between shadow-sm"><div className="flex items-center gap-3"><div className="p-3 bg-sky-700 text-white rounded-xl shadow-md"><ShieldCheck /></div><div className="text-left font-black text-slate-900 uppercase text-sm">Segurança</div></div><ChevronRight className="text-sky-300"/></button>
+          userProfile?.role === 'admin' ? (
+            <AdminDashboardScreen movimentacoes={movimentacoesOrdenadas} stats={stats} onNavigate={setActiveScreen} onOpenExport={handleOpenExport} handleExitApp={handleExitApp} />
+          ) : (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Metro Tile Navigation Menu (Inspired by reference photo - Fully Responsive for 800x600+) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-3 sm:gap-4">
+                <button
+                  onClick={() => setActiveScreen('programacao')}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer border border-indigo-500/30"
+                >
+                  <div className="p-3 bg-white/20 rounded-2xl group-hover:scale-110 transition-transform">
+                    <Globe className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                  </div>
+                  <span className="text-[11px] sm:text-xs font-black tracking-widest uppercase text-white">Programação</span>
+                </button>
 
-                {userProfile?.role === 'admin' && (
-                  <>
-                    <button onClick={() => setActiveScreen('relatorios')} className="p-4 bg-white border-2 border-slate-100 rounded-2xl flex items-center justify-between shadow-sm"><div className="flex items-center gap-3"><div className="p-3 bg-slate-800 text-white rounded-xl shadow-md"><BarChart3 /></div><div className="text-left font-black text-slate-900 uppercase text-sm">Administração</div></div><ChevronRight className="text-slate-300"/></button>
-                    <button onClick={() => setActiveScreen('usuarios')} className="p-4 bg-white border-2 border-sky-100 rounded-2xl flex items-center justify-between shadow-sm animate-in zoom-in-95 duration-300"><div className="flex items-center gap-3"><div className="p-3 bg-sky-600 text-white rounded-xl shadow-md"><Users /></div><div className="text-left font-black text-sky-950 uppercase text-sm">Equipe</div></div><ChevronRight className="text-sky-300"/></button>
-                  </>
-                )}
+                <button
+                  onClick={() => setActiveScreen('cadastro')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer border border-blue-500/30"
+                >
+                  <div className="p-3 bg-white/20 rounded-2xl group-hover:scale-110 transition-transform">
+                    <Smartphone className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                  </div>
+                  <span className="text-[11px] sm:text-xs font-black tracking-widest uppercase text-white">Pátio</span>
+                </button>
 
-                <button onClick={handleExitApp} className="p-4 bg-white border-2 border-rose-100 rounded-2xl flex items-center justify-between shadow-sm"><div className="flex items-center gap-3"><div className="p-3 bg-rose-600 text-white rounded-xl shadow-md"><LogOut /></div><div className="text-left font-black text-slate-900 uppercase text-sm leading-none">Sair</div></div><ChevronRight className="text-rose-300"/></button>
+                <button
+                  onClick={() => setActiveScreen('pousos')}
+                  className="bg-sky-500 hover:bg-sky-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer border border-sky-400/30"
+                >
+                  <div className="p-3 bg-white/20 rounded-2xl group-hover:scale-110 transition-transform">
+                    <ListOrdered className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                  </div>
+                  <span className="text-[11px] sm:text-xs font-black tracking-widest uppercase text-white">Pousos</span>
+                </button>
+
+                <button
+                  onClick={() => handleOpenExport()}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer border border-emerald-400/30"
+                >
+                  <div className="p-3 bg-white/20 rounded-2xl group-hover:scale-110 transition-transform">
+                    <Download className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                  </div>
+                  <span className="text-[11px] sm:text-xs font-black tracking-widest uppercase text-white">Relatórios</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveScreen('seguranca')}
+                  className="bg-amber-500 hover:bg-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer border border-amber-400/30"
+                >
+                  <div className="p-3 bg-white/20 rounded-2xl group-hover:scale-110 transition-transform">
+                    <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                  </div>
+                  <span className="text-[11px] sm:text-xs font-black tracking-widest uppercase text-white">Segurança</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveScreen('usuarios')}
+                  className="bg-teal-600 hover:bg-teal-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer border border-teal-500/30"
+                >
+                  <div className="p-3 bg-white/20 rounded-2xl group-hover:scale-110 transition-transform">
+                    <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                  </div>
+                  <span className="text-[11px] sm:text-xs font-black tracking-widest uppercase text-white">Equipe</span>
+                </button>
+
+                <button
+                  onClick={handleExitApp}
+                  className="bg-rose-600 hover:bg-rose-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer border border-rose-500/30"
+                >
+                  <div className="p-3 bg-white/20 rounded-2xl group-hover:scale-110 transition-transform">
+                    <LogOut className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                  </div>
+                  <span className="text-[11px] sm:text-xs font-black tracking-widest uppercase text-white">Sair</span>
+                </button>
+              </div>
+
+              {/* CRM Quick Filters & KPIs */}
+              <QuickFilters filtros={filtros} setFiltros={setFiltros} companhias={companhias} totalFiltrados={movimentacoesOrdenadas.length} totalGeral={movimentacoesPermitidas.length} />
+              <KPIScorecards stats={stats} />
+
+              {/* CRM Interactive Visual Charts */}
+              <VisualCharts movimentacoes={movimentacoesOrdenadas} />
+
+              {/* CRM Recent Operational Feed */}
+              <div className="bg-white rounded-[32px] border-2 border-slate-100 overflow-hidden shadow-sm p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Atividade Recente no Pátio (CRM Stream)</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">Últimos pousos e movimentações registradas</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveScreen('pousos')}
+                    className="text-xs font-black text-sky-700 hover:text-sky-900 uppercase tracking-widest flex items-center gap-1 cursor-pointer"
+                  >
+                    Ver Todos os Pousos <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                <OperationalTable movimentacoes={movimentacoesOrdenadas} onEditRecord={(r) => { setEditingRecord(r); setIsNewModalOpen(true); }} onDeleteRecord={setDeletingRecord} onToggleHibrido={handleToggleHibrido} onOpenExport={handleOpenExport} />
               </div>
             </div>
-          </div>
+          )
         )}
         {activeScreen === 'cadastro' && <MobileQuickEntry companhias={companhias} onSaveRecord={handleSaveRecord} onClose={() => setActiveScreen('home')} />}
         {activeScreen === 'pousos' && <RecentLandingsScreen movimentacoes={movimentacoesPermitidas} onEditRecord={(r) => { setEditingRecord(r); setIsNewModalOpen(true); }} onToggleHibrido={handleToggleHibrido} onNavigateToCadastro={() => setActiveScreen('cadastro')} onClose={() => setActiveScreen('home')} onOpenExport={handleOpenExport} />}
+        {activeScreen === 'programacao' && <ProgramacaoScreen onClose={() => setActiveScreen('home')} onImportFlight={handleImportFlight} />}
         {activeScreen === 'relatorios' && (
           <div className="space-y-6">
             <QuickFilters filtros={filtros} setFiltros={setFiltros} companhias={companhias} totalFiltrados={movimentacoesOrdenadas.length} totalGeral={movimentacoesPermitidas.length} />
@@ -305,8 +433,8 @@ export default function App() {
           </div>
         )}
         {activeScreen === 'exportar' && <ExportModal isOpen={true} onClose={() => setActiveScreen('home')} movimentacoes={exportContext.data} stats={stats} onPreparePrint={(d, s, m, p) => { setPrintData({ data: d, stats: s, period: p }); setReportMode(m); }} initialFilters={exportContext.filters} companhias={companhias} autoTriggerMode={autoReportMode} />}
-        {activeScreen === 'seguranca' && <DataManagementPanel onDataRestored={handleRefreshData} />}
-        {activeScreen === 'usuarios' && <UserManagement />}
+        {activeScreen === 'seguranca' && <DataManagementPanel onDataRestored={handleRefreshData} onClose={() => setActiveScreen('home')} />}
+        {activeScreen === 'usuarios' && <UserManagement onClose={() => setActiveScreen('home')} />}
       </main>
       <NewRegistrationModal isOpen={isNewModalOpen} onClose={() => { setIsNewModalOpen(false); setEditingRecord(null); }} onSave={handleSaveRecord} companhias={companhias} editingRecord={editingRecord} />
       <ConfirmDeleteModal isOpen={deletingRecord !== null} record={deletingRecord} onClose={() => setDeletingRecord(null)} onConfirm={(id) => {
@@ -321,4 +449,4 @@ export default function App() {
       }} />
     </div>
   );
-}
+};

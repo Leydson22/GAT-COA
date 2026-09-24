@@ -124,11 +124,14 @@ export const QuickFilters: React.FC<QuickFiltersProps> = ({
               onClick={() => {
                 const now = new Date();
                 const day = now.getDay();
-                const diffToMonday = day === 0 ? 6 : day - 1;
+                const diffToMonday = day === 0 ? -6 : 1 - day;
                 const mondayDate = new Date(now);
-                mondayDate.setDate(now.getDate() - diffToMonday);
+                mondayDate.setDate(now.getDate() + diffToMonday);
+                const sundayDate = new Date(mondayDate);
+                sundayDate.setDate(mondayDate.getDate() + 6);
                 const monday = getLocalDateISO(mondayDate);
-                setFiltros({ ...filtros, dataInicio: monday, dataFim: todayStr, buscaMatricula: '' });
+                const sunday = getLocalDateISO(sundayDate);
+                setFiltros({ ...filtros, dataInicio: monday, dataFim: sunday, buscaMatricula: '' });
               }}
               className={`flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all uppercase ${
                 filtros.dataInicio && filtros.dataInicio !== todayStr && !filtros.dataInicio.endsWith('-01') ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500'

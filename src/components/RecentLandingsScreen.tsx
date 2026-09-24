@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FlightRecord } from '../types';
-import { Plane, Search, Edit2, RefreshCw, Calendar, Clock, Filter, PlusCircle, CheckCircle2, X, FileText } from 'lucide-react';
+import { Plane, Search, Edit2, RefreshCw, Calendar, Clock, Filter, PlusCircle, CheckCircle2, X, FileText, ArrowUp, ArrowDown, ArrowLeft, ListOrdered, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AirlineLogo } from './AirlineLogo';
 
 interface RecentLandingsScreenProps {
   movimentacoes: FlightRecord[];
@@ -33,23 +34,41 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterHibrido, setFilterHibrido] = useState<'TODOS' | 'Sim' | 'Não'>('TODOS');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
-  // Filtered landings by date, search term, and hybrid status
-  const filteredLandings = movimentacoes.filter((rec) => {
-    if (selectedDate && rec.data_cadastro !== selectedDate) {
-      return false;
-    }
-    if (filterHibrido !== 'TODOS' && rec.desembarque_hibrido !== filterHibrido) {
-      return false;
-    }
-    if (searchTerm.trim()) {
-      const term = searchTerm.toUpperCase().trim();
-      const matchMatricula = rec.matricula.toUpperCase().includes(term);
-      const matchCompany = rec.nome_companhia.toUpperCase().includes(term);
-      return matchMatricula || matchCompany;
-    }
-    return true;
-  });
+  // Filtered and sorted landings by date, search term, hybrid status, and sort order
+  const filteredLandings = useMemo(() => {
+    const list = movimentacoes.filter((rec) => {
+      if (selectedDate && rec.data_cadastro !== selectedDate) {
+        return false;
+      }
+      if (filterHibrido !== 'TODOS' && rec.desembarque_hibrido !== filterHibrido) {
+        return false;
+      }
+      if (searchTerm.trim()) {
+        const term = searchTerm.toUpperCase().trim();
+        const matchMatricula = rec.matricula.toUpperCase().includes(term);
+        const matchCompany = rec.nome_companhia.toUpperCase().includes(term);
+        return matchMatricula || matchCompany;
+      }
+      return true;
+    });
+
+    return [...list].sort((a, b) => {
+      const dateTimeA = `${a.data_cadastro || ''} ${a.horario_cadastro || ''}`;
+      const dateTimeB = `${b.data_cadastro || ''} ${b.horario_cadastro || ''}`;
+      const comp = dateTimeA.localeCompare(dateTimeB);
+      return sortOrder === 'desc' ? -comp : comp;
+    });
+  }, [movimentacoes, selectedDate, filterHibrido, searchTerm, sortOrder]);
+
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredLandings.length / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const paginatedLandings = filteredLandings.slice(startIndex, startIndex + pageSize);
 
   const formatDateBR = (dateStr: string) => {
     if (!dateStr) return '';
@@ -63,7 +82,29 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
   const isToday = selectedDate === todayStr;
 
   return (
-    <div className="space-y-4 max-w-4xl mx-auto w-full">
+    <div className="space-y-6 max-w-4xl mx-auto w-full pb-20 px-2 sm:px-0">
+      {/* Header Card Standard (Sky Blue matching Pousos tile color) */}
+      <div className="bg-sky-600 text-white p-6 sm:p-8 rounded-[32px] shadow-xl relative overflow-hidden border border-sky-500">
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+               <div className="p-3 bg-white/20 rounded-2xl shadow-md"><ListOrdered className="w-6 h-6 text-white" /></div>
+               <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">Histórico de Pousos (CGB)</h2>
+            </div>
+            <p className="text-sky-100 text-xs font-bold uppercase tracking-widest pl-1">Consulta e acompanhamento de aeronaves</p>
+          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all active:scale-95 text-xs font-black uppercase tracking-wider border border-white/20 cursor-pointer text-white shadow-md"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+          )}
+        </div>
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none"></div>
+      </div>
+
       {/* Date Filter & Search Control Bar */}
       <div className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
@@ -75,14 +116,14 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                onChange={(e) => { setSelectedDate(e.target.value); setCurrentPage(1); }}
                 className="bg-transparent font-extrabold text-sky-950 focus:outline-none cursor-pointer"
               />
             </div>
 
             <button
               type="button"
-              onClick={() => setSelectedDate(todayStr)}
+              onClick={() => { setSelectedDate(todayStr); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
                 isToday
                   ? 'bg-amber-400 text-sky-950 shadow-2xs'
@@ -95,7 +136,7 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
             {selectedDate && (
               <button
                 type="button"
-                onClick={() => setSelectedDate('')}
+                onClick={() => { setSelectedDate(''); setCurrentPage(1); }}
                 className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition-all cursor-pointer"
                 title="Exibir pousos de todas as datas"
               >
@@ -104,76 +145,103 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
             )}
           </div>
 
-          {/* Landing Count Badge */}
-          <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-            <span className="text-xs font-bold text-slate-500">
-              {isToday ? 'Pousos de Hoje:' : selectedDate ? `Pousos em ${formatDateBR(selectedDate)}:` : 'Total de Pousos:'}
-            </span>
-            <span className="bg-sky-950 text-amber-300 font-black text-xs px-3 py-1 rounded-full shadow-2xs">
-              {filteredLandings.length}
-            </span>
-          </div>
-
-          {onOpenExport && (
-            <button
-              onClick={() => onOpenExport(filteredLandings, { dataInicio: selectedDate, dataFim: selectedDate }, 'OPERATIONAL')}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-black rounded-xl transition-all shadow-xs"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>GERAR PDF</span>
-            </button>
-          )}
-        </div>
-
-        {/* Search & Hybrid Filter */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          {/* Search Input */}
+          <div className="relative flex items-center">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3" />
             <input
               type="text"
-              placeholder="Buscar por matrícula (cauda) ou empresa..."
+              placeholder="Buscar matrícula/empresa..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="w-full sm:w-52 pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-sky-500 outline-none"
             />
           </div>
+        </div>
 
-          {/* Hybrid Quick Filter */}
-          <div className="flex items-center gap-1.5 text-xs shrink-0">
-            <Filter className="w-3.5 h-3.5 text-slate-400 hidden xs:inline" />
-            <span className="text-slate-500 font-bold hidden sm:inline">Híbrido:</span>
-            {(['TODOS', 'Sim', 'Não'] as const).map((opt) => (
+        {/* Filters and Counters */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <span className="text-[10px] font-extrabold text-slate-500 uppercase px-2">Status:</span>
               <button
-                key={opt}
-                onClick={() => setFilterHibrido(opt)}
-                className={`px-3 py-1.5 rounded-lg font-extrabold transition-all cursor-pointer ${
-                  filterHibrido === opt
-                    ? 'bg-sky-900 text-white shadow-2xs'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                type="button"
+                onClick={() => { setFilterHibrido('TODOS'); setCurrentPage(1); }}
+                className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                  filterHibrido === 'TODOS' ? 'bg-white text-sky-900 shadow-2xs' : 'text-slate-600'
                 }`}
               >
-                {opt === 'TODOS' ? 'Todos' : opt === 'Sim' ? 'Híbridos' : 'Padrão'}
+                Todos
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => { setFilterHibrido('Sim'); setCurrentPage(1); }}
+                className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                  filterHibrido === 'Sim' ? 'bg-amber-500 text-white shadow-2xs' : 'text-slate-600'
+                }`}
+              >
+                Híbrido
+              </button>
+              <button
+                type="button"
+                onClick={() => { setFilterHibrido('Não'); setCurrentPage(1); }}
+                className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                  filterHibrido === 'Não' ? 'bg-sky-800 text-white shadow-2xs' : 'text-slate-600'
+                }`}
+              >
+                Padrão
+              </button>
+            </div>
+
+            {/* Items Per Page Selector (Above data) */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase">Por página:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent font-bold text-slate-700 focus:outline-none cursor-pointer text-xs"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between sm:justify-end gap-3 text-xs">
+            <span className="text-slate-500 font-semibold">
+              Total: <strong className="text-sky-950 font-black">{filteredLandings.length}</strong>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs border border-slate-200 transition-all cursor-pointer"
+              title="Alternar ordem cronológica"
+            >
+              {sortOrder === 'desc' ? (
+                <><span>Recentes Primeiro</span><ArrowDown className="w-3.5 h-3.5 text-sky-800" /></>
+              ) : (
+                <><span>Antigas Primeiro</span><ArrowUp className="w-3.5 h-3.5 text-sky-800" /></>
+              )}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Landings List with Zebra Striping (Alternating Row Shading) */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        {filteredLandings.length === 0 ? (
-          <div className="p-8 text-center space-y-2">
-            <p className="text-sm font-bold text-slate-500">
-              Nenhum pouso encontrado para os filtros selecionados.
-            </p>
-            <p className="text-xs text-slate-400">
-              Tente ajustar a busca por matrícula ou adicionar um novo registro.
-            </p>
+      {/* Landings List Container */}
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs flex flex-col">
+        {paginatedLandings.length === 0 ? (
+          <div className="p-16 text-center text-slate-400 italic text-xs">
+            Nenhuma movimentação de pátio encontrada para os filtros selecionados.
           </div>
         ) : (
-          <div className="divide-y divide-slate-200/70">
-            {filteredLandings.map((rec, index) => {
+          <div className="divide-y divide-slate-100">
+            {paginatedLandings.map((rec, index) => {
               const isHybrid = rec.desembarque_hibrido === 'Sim';
               const isEven = index % 2 === 0;
 
@@ -191,43 +259,46 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
                       {rec.matricula}
                     </div>
 
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="font-extrabold text-slate-900 text-sm sm:text-base">
-                          {rec.nome_companhia}
-                        </h4>
+                    <div className="flex items-center gap-3">
+                      <AirlineLogo nomeCompanhia={rec.nome_companhia} size="sm" />
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-extrabold text-slate-900 text-sm sm:text-base">
+                            {rec.nome_companhia}
+                          </h4>
 
-                        {/* Hybrid Badge Pill */}
-                        <span
-                          className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
-                            isHybrid
-                              ? 'bg-amber-100 text-amber-900 border-amber-300'
-                              : 'bg-sky-100 text-sky-900 border-sky-300'
-                          }`}
-                        >
-                          {isHybrid ? 'Híbrido' : 'Padrão'}
-                        </span>
-
-                        {/* Posição no Pátio Badge */}
-                        {rec.posicao_patio && (
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-sky-900 text-amber-300 border border-sky-950 font-mono shadow-2xs">
-                            {rec.posicao_patio}
+                          {/* Hybrid Badge Pill */}
+                          <span
+                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
+                              isHybrid
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : 'bg-sky-100 text-sky-900 border-sky-300'
+                            }`}
+                          >
+                            {isHybrid ? 'Híbrido' : 'Padrão'}
                           </span>
-                        )}
-                      </div>
 
-                      <div className="flex items-center gap-3 text-xs text-slate-500 font-mono mt-1">
-                        <span className="flex items-center gap-1 font-semibold">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          {formatDateBR(rec.data_cadastro)}
-                        </span>
-                        <span className="flex items-center gap-1 font-semibold text-slate-700">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          {rec.horario_cadastro}
-                        </span>
-                        <span className="text-[10px] text-slate-400 hidden sm:inline">
-                          • {rec.id_registro}
-                        </span>
+                          {/* Posição no Pátio Badge */}
+                          {rec.posicao_patio && (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-sky-900 text-amber-300 border border-sky-950 font-mono shadow-2xs">
+                              {rec.posicao_patio}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3 text-xs text-slate-500 font-mono mt-1">
+                          <span className="flex items-center gap-1 font-semibold">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            {formatDateBR(rec.data_cadastro)}
+                          </span>
+                          <span className="flex items-center gap-1 font-semibold text-slate-700">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            {rec.horario_cadastro}
+                          </span>
+                          <span className="text-[10px] text-slate-400 hidden sm:inline">
+                            • {rec.id_registro}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -249,6 +320,59 @@ export const RecentLandingsScreen: React.FC<RecentLandingsScreenProps> = ({
             })}
           </div>
         )}
+
+        {/* Pagination Footer */}
+        <div className="bg-slate-50 border-t border-slate-200 px-5 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-3">
+          <span className="text-[11px] text-slate-500 font-medium">
+            Mostrando <strong className="text-slate-800">{paginatedLandings.length}</strong> de <strong className="text-slate-800">{filteredLandings.length}</strong> pousos filtrados
+          </span>
+
+          <div className="flex items-center gap-3 text-[11px]">
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1">
+              <span className="text-slate-400 font-medium">Por página:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent font-bold text-slate-700 focus:outline-none cursor-pointer"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            <span className="text-slate-500">
+              Página <strong>{validCurrentPage}</strong> de <strong>{totalPages}</strong>
+            </span>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={validCurrentPage === 1}
+                className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Página Anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={validCurrentPage === totalPages}
+                className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Próxima Página"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

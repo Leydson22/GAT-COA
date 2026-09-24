@@ -5,5 +5,6 @@ export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/home/leydson/.local/bin:/home/leydso
 # Navega para a pasta do projeto
 cd "/home/leydson/development/COA/dashboard-cgb"
 
-# Inicia o servidor web Vite
-npm run dev
+# Compila o projeto e inicia o servidor Express (que serve o frontend e a API proxy /api/siv-proxy)
+npm run build
+node server.ts

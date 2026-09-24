@@ -3,7 +3,7 @@ import {
   Database, Download, Upload, Trash2, AlertTriangle, ShieldCheck,
   FileJson, X, ShieldAlert, CheckCircle2, RefreshCw, Clock,
   History, Settings2, ShieldQuestion, Trash, CloudDownload, CloudUpload,
-  FileText, Share2, Info, PlusCircle, Edit2, ChevronRight, Wifi, WifiOff
+  FileText, Share2, Info, PlusCircle, Edit2, ChevronRight, Wifi, WifiOff, Shield, ArrowLeft
 } from 'lucide-react';
 import {
   generateBackup, restoreBackup, clearAllData, clearLogs,
@@ -11,15 +11,16 @@ import {
   saveInternalSnapshot, restoreFromSnapshot, deleteSnapshot,
   SnapshotMetadata, BackupConfig
 } from '../services/dataManagementService';
-import { syncAllLocalData, getPendingSyncCount } from '../services/syncService';
+import { syncAllLocalData, pullDataFromCloud, getPendingSyncCount } from '../services/syncService';
 
 interface DataManagementPanelProps {
   onDataRestored: () => void;
+  onClose?: () => void;
 }
 
 type MaintenanceAction = 'CLEAR_MOV' | 'CLEAR_LOGS' | 'FACTORY_RESET' | 'RESTORE_SNAP' | null;
 
-export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onDataRestored }) => {
+export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onDataRestored, onClose }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pendingSync, setPendingSync] = useState(0);
@@ -28,6 +29,10 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [syncProgress, setSyncProgress] = useState<number>(0);
   const [syncStatusText, setSyncStatusText] = useState<string>('');
+
+  const cachedProfile = localStorage.getItem('cgb_cached_profile');
+  const userProfile = cachedProfile ? JSON.parse(cachedProfile) : { role: 'operator' };
+  const isAdmin = userProfile.role === 'admin';
 
   const [config, setConfig] = useState<BackupConfig>(() => {
     const saved = localStorage.getItem('cgb_backup_config');
@@ -47,98 +52,138 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    const interval = setInterval(() => {
+      setIsOnline(navigator.onLine);
+    }, 1500);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
     };
   }, []);
 
   const loadInitialData = async () => {
     setStats(getDatabaseStats());
-    setPendingSync(getPendingSyncCount());
     const list = await listInternalSnapshots();
     setSnapshots(list);
-  };
-
-  const refreshStats = async () => {
-    setStats(getDatabaseStats());
     setPendingSync(getPendingSyncCount());
-    const list = await listInternalSnapshots();
-    setSnapshots(list);
-    onDataRestored();
   };
 
-  useEffect(() => {
-    localStorage.setItem('cgb_backup_config', JSON.stringify(config));
-  }, [config]);
-
-  const handleBackup = async () => {
-    setIsProcessing(true);
-    await generateBackup();
-    setIsProcessing(false);
-  };
-
-  const handleSyncCloud = async () => {
-    if (!navigator.onLine) {
-      alert('⚠️ O dispositivo está offline. Conecte-se à internet para sincronizar com o Supabase.');
-      return;
-    }
-
-    setIsProcessing(true);
-    setSyncProgress(0);
-    setSyncStatusText('Iniciando sincronização com o Supabase...');
-
-    const result = await syncAllLocalData((progress, current, total) => {
-      setSyncProgress(progress);
-      setSyncStatusText(`Enviando ${current} de ${total} registros (${progress}%)`);
-    });
-
-    setSyncStatusText(result.message);
-    setTimeout(async () => {
+  const handleExportBackup = async () => {
+    try {
+      setIsProcessing(true);
+      await generateBackup();
+    } catch (err: any) {
+      alert('Erro ao gerar backup: ' + err.message);
+    } finally {
       setIsProcessing(false);
-      setSyncProgress(0);
-      setSyncStatusText('');
-      alert(result.message);
-      await refreshStats();
-    }, 600);
+    }
   };
-
-  const handleRestoreClick = () => fileInputRef.current?.click();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (confirm('A restauração irá substituir todos os dados atuais. Deseja continuar?')) {
+    try {
       setIsProcessing(true);
-      try {
-        const success = await restoreBackup(file);
-        if (success) {
-          alert('Dados restaurados com sucesso!');
-          refreshStats();
-        } else {
-          alert('Falha ao restaurar dados.');
-        }
-      } catch (err) {
-        alert('Erro durante a restauração.');
-      } finally {
-        setIsProcessing(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+      const text = await file.text();
+      const success = await restoreBackup(text);
+      if (success) {
+        alert('✅ Backup restaurado com sucesso!');
+        loadInitialData();
+        onDataRestored();
+      } else {
+        alert('❌ Arquivo de backup inválido.');
       }
+    } catch (err: any) {
+      alert('Erro ao restaurar backup: ' + err.message);
+    } finally {
+      setIsProcessing(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSyncToCloud = async () => {
+    try {
+      setIsProcessing(true);
+      setSyncStatusText('Sincronizando com Supabase...');
+      await syncAllLocalData();
+      setPendingSync(getPendingSyncCount());
+      alert('✅ Sincronização com a nuvem concluída com sucesso!');
+    } catch (err: any) {
+      alert('Erro na sincronização: ' + err.message);
+    } finally {
+      setIsProcessing(false);
+      setSyncStatusText('');
+    }
+  };
+
+  const handlePullFromCloud = async () => {
+    if (!confirm('Deseja baixar os dados mais recentes da nuvem Supabase?')) return;
+    try {
+      setIsProcessing(true);
+      setSyncStatusText('Baixando dados da nuvem...');
+      await pullDataFromCloud();
+      loadInitialData();
+      onDataRestored();
+      alert('✅ Dados atualizados da nuvem com sucesso!');
+    } catch (err: any) {
+      alert('Erro ao puxar dados da nuvem: ' + err.message);
+    } finally {
+      setIsProcessing(false);
+      setSyncStatusText('');
+    }
+  };
+
+  const executeConfirmedAction = async () => {
+    if (confirmText !== CONFIRM_PHRASE) {
+      alert(`Digite "${CONFIRM_PHRASE}" para confirmar.`);
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      if (pendingAction === 'CLEAR_MOV') {
+        clearMovimentacoes();
+        alert('Registros de pátio limpos com sucesso.');
+      } else if (pendingAction === 'CLEAR_LOGS') {
+        clearLogs();
+        alert('Logs de auditoria limpos com sucesso.');
+      } else if (pendingAction === 'FACTORY_RESET') {
+        clearAllData();
+        alert('Sistema reiniciado para o estado de fábrica.');
+      } else if (pendingAction === 'RESTORE_SNAP' && selectedSnapshotPath) {
+        const ok = await restoreFromSnapshot(selectedSnapshotPath);
+        if (ok) alert('Ponto de restauração aplicado com sucesso!');
+        else alert('Falha ao restaurar snapshot.');
+      }
+      loadInitialData();
+      onDataRestored();
+    } catch (err: any) {
+      alert('Erro na operação: ' + err.message);
+    } finally {
+      setIsProcessing(false);
+      setPendingAction(null);
+      setSelectedSnapshotPath(null);
+      setConfirmText('');
     }
   };
 
   const handleCreateSnapshot = async () => {
-    const now = new Date();
-    const defaultName = `Backup ${now.toLocaleDateString('pt-BR')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-
-    const name = window.prompt("Dê um nome para este ponto de restauração:", defaultName);
-    if (name === null) return;
-
-    setIsProcessing(true);
-    await saveInternalSnapshot(name || defaultName);
-    await refreshStats();
-    setIsProcessing(false);
+    const label = prompt('Nome ou descrição para o Ponto de Restauração:', `Ponto ${new Date().toLocaleString()}`);
+    if (!label) return;
+    try {
+      setIsProcessing(true);
+      await saveInternalSnapshot(label);
+      const list = await listInternalSnapshots();
+      setSnapshots(list);
+      alert('📸 Ponto de restauração salvo com sucesso!');
+    } catch (err: any) {
+      alert('Erro ao criar snapshot: ' + err.message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleRestoreSnapshotClick = (path: string) => {
@@ -146,28 +191,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
     setPendingAction('RESTORE_SNAP');
   };
 
-  const executeAction = async () => {
-    if (confirmText !== CONFIRM_PHRASE) return;
-
-    setIsProcessing(true);
-    if (pendingAction === 'CLEAR_MOV') clearMovimentacoes();
-    else if (pendingAction === 'CLEAR_LOGS') clearLogs();
-    else if (pendingAction === 'FACTORY_RESET') clearAllData();
-    else if (pendingAction === 'RESTORE_SNAP' && selectedSnapshotPath) {
-      await restoreFromSnapshot(selectedSnapshotPath);
-    }
-
-    setTimeout(() => {
-      setIsProcessing(false);
-      setPendingAction(null);
-      setConfirmText('');
-      setSelectedSnapshotPath(null);
-      refreshStats();
-      alert('Operação concluída com sucesso!');
-    }, 500);
-  };
-
-  const handleDeleteSnap = async (path: string) => {
+  const handleDeleteSnapshot = async (path: string) => {
     if (confirm('Excluir este ponto de restauração permanentemente?')) {
       await deleteSnapshot(path);
       const list = await listInternalSnapshots();
@@ -176,7 +200,29 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
   };
 
   return (
-    <div className="space-y-6 mt-8">
+    <div className="space-y-6 max-w-5xl mx-auto w-full pb-20 px-2 sm:px-0">
+      {/* Header Card Standard (Amber matching Segurança tile color) */}
+      <div className="bg-amber-600 text-white p-6 sm:p-8 rounded-[32px] shadow-xl relative overflow-hidden border border-amber-500">
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+               <div className="p-3 bg-white/20 rounded-2xl shadow-md"><ShieldCheck className="w-6 h-6 text-white" /></div>
+               <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">Segurança & Backup (CGB)</h2>
+            </div>
+            <p className="text-amber-100 text-xs font-bold uppercase tracking-widest pl-1">Máquina do tempo, restauração e exportação de dados</p>
+          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all active:scale-95 text-xs font-black uppercase tracking-wider border border-white/20 cursor-pointer text-white shadow-md"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+          )}
+        </div>
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none"></div>
+      </div>
+
       {/* Security Modal Overlay */}
       {pendingAction && (
         <div className="fixed inset-0 z-[3000] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
@@ -194,252 +240,186 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({ onData
               </p>
             </div>
 
-            <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <label className="block text-[10px] font-black text-slate-400 uppercase text-center tracking-[0.2em]">
-                Digite <span className="text-rose-600">CONFIRMAR</span> para prosseguir
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                Digite <strong className="text-rose-600">{CONFIRM_PHRASE}</strong> para autorizar:
               </label>
               <input
                 type="text"
+                placeholder={CONFIRM_PHRASE}
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
-                placeholder="..."
-                className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl text-center font-black text-sky-950 focus:border-rose-500 outline-none transition-all uppercase"
+                className="w-full bg-slate-100 border-2 border-slate-200 rounded-2xl p-3.5 text-center font-mono font-black text-sm tracking-widest text-slate-800 outline-hidden focus:border-rose-500 focus:bg-white"
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-2 gap-3 pt-2">
               <button
-                onClick={executeAction}
-                disabled={confirmText !== CONFIRM_PHRASE || isProcessing}
-                className="w-full py-4 bg-rose-600 disabled:bg-slate-200 text-white font-black text-sm rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-widest flex items-center justify-center gap-2"
+                onClick={() => { setPendingAction(null); setConfirmText(''); setSelectedSnapshotPath(null); }}
+                className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer"
               >
-                {isProcessing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
-                Confirmar Agora
+                Cancelar
               </button>
               <button
-                onClick={() => setPendingAction(null)}
-                className="w-full py-3.5 bg-slate-100 text-slate-500 font-black text-xs rounded-2xl"
+                disabled={confirmText !== CONFIRM_PHRASE || isProcessing}
+                onClick={executeConfirmedAction}
+                className="py-3.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all cursor-pointer"
               >
-                VOLTAR
+                Confirmar
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 1. BACKUP EXTERNO (NUVEM/DRIVE) */}
-      <div className="bg-white rounded-3xl border-2 border-slate-100 overflow-hidden shadow-sm">
-        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-sky-600 text-white rounded-xl">
-              <CloudUpload className="w-5 h-5" />
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Backup & Restore Card */}
+        <div className="bg-white p-6 sm:p-8 rounded-[32px] border-2 border-slate-100 shadow-sm space-y-6 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-sky-100 text-sky-800 rounded-2xl"><Database className="w-6 h-6" /></div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Backup e Restauração</h3>
+                <p className="text-xs text-slate-500 font-medium">Exportar arquivo .json de segurança</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Sincronização em Nuvem (Supabase)</h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase">Enviar dados locais para o servidor</p>
+
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2 text-xs font-medium text-slate-600">
+               <div className="flex justify-between"><span>Registros de Pátio:</span><strong className="font-mono text-sky-950">{stats.totalMov}</strong></div>
+               <div className="flex justify-between"><span>Logs de Auditoria:</span><strong className="font-mono text-sky-950">{stats.totalLogs}</strong></div>
+               <div className="flex justify-between"><span>Modelos Cadastrados:</span><strong className="font-mono text-sky-950">{stats.totalModels}</strong></div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
-              isOnline ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-rose-100 text-rose-800 border-rose-200'
-            }`}>
-              {isOnline ? <Wifi className="w-3 h-3 text-emerald-600 animate-pulse" /> : <WifiOff className="w-3 h-3 text-rose-600" />}
-              {isOnline ? 'Online' : 'Offline'}
-            </span>
-            {pendingSync > 0 && (
-              <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-3 py-1 rounded-full animate-pulse border border-amber-200">
-                {pendingSync} PENDENTES
-              </span>
+
+          <div className="space-y-3 pt-4 border-t border-slate-100">
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
+            <button
+              onClick={handleExportBackup}
+              disabled={isProcessing}
+              className="w-full py-4 bg-sky-900 hover:bg-sky-950 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
+            >
+              <Download className="w-4 h-4" /> Exportar Backup (.JSON)
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing}
+              className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
+            >
+              <Upload className="w-4 h-4" /> Restaurar de Arquivo...
+            </button>
+          </div>
+        </div>
+
+        {/* Cloud Sync Card */}
+        <div className="bg-white p-6 sm:p-8 rounded-[32px] border-2 border-slate-100 shadow-sm space-y-6 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-indigo-100 text-indigo-800 rounded-2xl"><CloudUpload className="w-6 h-6" /></div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Sincronização na Nuvem</h3>
+                <p className="text-xs text-slate-500 font-medium">Supabase Cloud PostgreSQL</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2 text-xs font-medium text-slate-600">
+               <div className="flex justify-between items-center">
+                 <span>Status Conexão:</span>
+                 <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${isOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                   {isOnline ? 'ONLINE' : 'OFFLINE'}
+                 </span>
+               </div>
+               <div className="flex justify-between items-center">
+                 <span>Pendentes de Envio:</span>
+                 <strong className="font-mono text-indigo-950">{pendingSync} registro(s)</strong>
+               </div>
+               {syncStatusText && <p className="text-[11px] text-indigo-700 font-bold italic">{syncStatusText}</p>}
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-4 border-t border-slate-100">
+            <button
+              onClick={handleSyncToCloud}
+              disabled={isProcessing || !isOnline}
+              className="w-full py-4 bg-indigo-900 hover:bg-indigo-950 disabled:opacity-40 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
+            >
+              <CloudUpload className="w-4 h-4" /> Sincronizar com a Nuvem
+            </button>
+            <button
+              onClick={handlePullFromCloud}
+              disabled={isProcessing || !isOnline}
+              className="w-full py-4 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-black text-xs uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
+            >
+              <CloudDownload className="w-4 h-4" /> Baixar Dados da Nuvem
+            </button>
+          </div>
+        </div>
+
+        {/* Time Machine / Snapshots Card */}
+        <div className="bg-white p-6 sm:p-8 rounded-[32px] border-2 border-slate-100 shadow-sm space-y-6 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-amber-100 text-amber-800 rounded-2xl"><History className="w-6 h-6" /></div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Máquina do Tempo</h3>
+                  <p className="text-xs text-slate-500 font-medium">Pontos de restauração internos</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCreateSnapshot}
+                disabled={isProcessing}
+                className="px-4 py-2.5 bg-amber-400 hover:bg-amber-500 text-sky-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                + Criar Ponto
+              </button>
+            </div>
+
+            <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
+              {snapshots.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs italic">Nenhum ponto de restauração salvo</div>
+              ) : (
+                snapshots.map((snap) => (
+                  <div key={snap.path} className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 flex items-center justify-between text-xs">
+                    <div>
+                      <strong className="block text-slate-800 font-bold">{snap.label}</strong>
+                      <span className="text-[10px] text-slate-400 font-mono">{new Date(snap.timestamp).toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleRestoreSnapshotClick(snap.path)}
+                        className="px-3 py-1.5 bg-sky-900 text-white font-bold rounded-xl text-[10px] uppercase cursor-pointer hover:bg-sky-950"
+                      >
+                        Restaurar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSnapshot(snap.path)}
+                        className="p-1.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100">
+            {isAdmin ? (
+              <button
+                onClick={() => setPendingAction('FACTORY_RESET')}
+                disabled={isProcessing}
+                className="w-full py-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-black text-xs uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" /> Reset de Fábrica (Apagar Tudo)
+              </button>
+            ) : (
+              <p className="text-[11px] text-slate-400 text-center font-medium italic">
+                Ações de reset restritas a administradores.
+              </p>
             )}
           </div>
-        </div>
-
-        {/* Progress bar during sync */}
-        {isProcessing && syncProgress > 0 && (
-          <div className="px-6 pt-4 pb-2 space-y-1.5 bg-sky-50/50 border-b border-sky-100 animate-in fade-in duration-200">
-            <div className="flex justify-between items-center text-[11px] font-black uppercase text-sky-950">
-              <span>{syncStatusText}</span>
-              <span>{syncProgress}%</span>
-            </div>
-            <div className="w-full bg-slate-200 rounded-full h-3.5 overflow-hidden border border-slate-300 shadow-inner">
-              <div
-                className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
-                style={{ width: `${syncProgress}%` }}
-              ></div>
-            </div>
-          </div>
-        )}
-
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={handleSyncCloud}
-              disabled={!isOnline || isProcessing}
-              className={`flex items-center justify-between p-5 border-2 rounded-[24px] transition-all active:scale-95 group shadow-xs ${
-                !isOnline
-                  ? 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed'
-                  : 'bg-sky-50 border-sky-200 hover:border-sky-600 cursor-pointer'
-              }`}
-              title={!isOnline ? 'Disponível apenas quando o dispositivo estiver online' : 'Enviar base local para o Supabase'}
-            >
-              <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-2xl shadow-lg transition-transform ${!isOnline ? 'bg-slate-400 text-white' : 'bg-sky-600 text-white group-hover:scale-110'}`}>
-                  <RefreshCw className={`w-6 h-6 ${isProcessing ? 'animate-spin' : ''}`} />
-                </div>
-                <div className="text-left">
-                  <span className="block text-sm font-black text-sky-950 uppercase">
-                    {!isOnline ? 'Sincronizar (Offline)' : 'Sincronizar Tudo'}
-                  </span>
-                  <span className="block text-[10px] text-sky-700 font-medium">
-                    {!isOnline ? 'Conecte-se à internet para habilitar' : 'Enviar base local para o Supabase'}
-                  </span>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-sky-400" />
-            </button>
-
-            <button
-              onClick={handleBackup}
-              disabled={isProcessing}
-              className="flex items-center justify-between p-5 bg-white border-2 border-slate-100 hover:border-slate-400 rounded-[24px] transition-all active:scale-95 group shadow-xs cursor-pointer"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-slate-800 text-white rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
-                  <FileJson className="w-6 h-6" />
-                </div>
-                <div className="text-left">
-                  <span className="block text-sm font-black text-slate-800 uppercase">Exportar JSON</span>
-                  <span className="block text-[10px] text-slate-500 font-medium">Backup manual (Drive/WhatsApp)</span>
-                </div>
-              </div>
-              <Share2 className="w-5 h-5 text-slate-300" />
-            </button>
-
-            <button
-              onClick={handleRestoreClick}
-              disabled={isProcessing}
-              className="flex items-center justify-between p-5 bg-white border-2 border-slate-100 hover:border-sky-400 rounded-[24px] transition-all active:scale-95 group shadow-xs cursor-pointer"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-sky-700 text-white rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
-                  <Upload className="w-6 h-6" />
-                </div>
-                <div className="text-left">
-                  <span className="block text-sm font-black text-slate-800 uppercase">Importar JSON</span>
-                  <span className="block text-[10px] text-slate-500 font-medium">Restaurar arquivo de backup (.json)</span>
-                </div>
-              </div>
-              <CloudUpload className="w-5 h-5 text-slate-300" />
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept=".json"
-              className="hidden"
-            />
-        </div>
-      </div>
-
-      {/* 2. PONTOS DE RESTAURAÇÃO INTERNOS */}
-      <div className="bg-white rounded-3xl border-2 border-slate-100 overflow-hidden shadow-sm">
-        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-amber-400 text-sky-950 rounded-xl">
-              <History className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Máquina do Tempo (Interno)</h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase">Restaurar base para estado anterior</p>
-            </div>
-          </div>
-          <button
-            onClick={handleCreateSnapshot}
-            className="p-2 bg-sky-900 text-white rounded-xl hover:bg-sky-800 active:scale-95 transition-all shadow-sm cursor-pointer"
-          >
-            <PlusCircle className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-4 sm:p-6 max-h-[400px] overflow-y-auto">
-          {snapshots.length === 0 ? (
-            <div className="text-center py-10 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 font-bold uppercase text-[10px]">
-               Sem pontos salvos no dispositivo
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {snapshots.map((snap) => (
-                <div key={snap.path} className="flex items-center justify-between p-4 bg-white border-2 border-slate-50 rounded-2xl shadow-xs hover:border-sky-300 transition-all">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-xl ${snap.isAuto ? 'bg-slate-100 text-slate-400' : 'bg-sky-50 text-sky-600'}`}>
-                      {snap.isAuto ? <RefreshCw className="w-4 h-4" /> : <FileJson className="w-4 h-4" />}
-                    </div>
-                    <div>
-                      <span className="block text-[11px] font-black text-slate-800 uppercase leading-tight">{snap.name}</span>
-                      <span className="block text-[9px] text-slate-400 font-mono mt-0.5">{new Date(snap.timestamp).toLocaleString('pt-BR')}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleRestoreSnapshotClick(snap.path)}
-                      className="px-3 py-1.5 bg-sky-50 text-sky-700 rounded-lg text-[9px] font-black uppercase hover:bg-sky-600 hover:text-white transition-all cursor-pointer"
-                    >
-                      Voltar
-                    </button>
-                    <button onClick={() => handleDeleteSnap(snap.path)} className="p-1.5 text-slate-300 hover:text-rose-600 transition-colors cursor-pointer">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 3. LIMPEZA SELETIVA */}
-      <div className="bg-white rounded-3xl border-2 border-slate-100 overflow-hidden shadow-sm">
-        <div className="bg-rose-50/50 px-6 py-4 border-b border-rose-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-rose-600 text-white rounded-xl">
-              <Trash2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight text-rose-900">Limpeza e Manutenção</h3>
-              <p className="text-[10px] text-rose-600 font-bold uppercase">Remoção definitiva de registros</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-           <button
-              onClick={() => setPendingAction('CLEAR_MOV')}
-              className="flex items-center gap-3 p-4 bg-white border-2 border-slate-100 hover:border-rose-400 rounded-2xl transition-all active:scale-95 group shadow-xs cursor-pointer"
-            >
-              <div className="p-2 bg-rose-50 text-rose-500 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-colors"><Database className="w-5 h-5" /></div>
-              <div className="text-left">
-                <span className="block text-xs font-black text-slate-700 uppercase">Limpar Pousos</span>
-                <span className="block text-[9px] text-slate-400 font-bold uppercase">{stats.totalMov} Itens</span>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setPendingAction('CLEAR_LOGS')}
-              className="flex items-center gap-3 p-4 bg-white border-2 border-slate-100 hover:border-rose-400 rounded-2xl transition-all active:scale-95 group shadow-xs cursor-pointer"
-            >
-              <div className="p-2 bg-rose-50 text-rose-500 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-colors"><ShieldAlert className="w-5 h-5" /></div>
-              <div className="text-left">
-                <span className="block text-xs font-black text-slate-700 uppercase">Limpar Logs</span>
-                <span className="block text-[9px] text-slate-400 font-bold uppercase">{stats.totalLogs} Itens</span>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setPendingAction('FACTORY_RESET')}
-              className="flex items-center justify-center gap-3 p-4 bg-rose-600 text-white rounded-2xl transition-all hover:bg-rose-700 shadow-lg active:scale-95 font-black text-xs uppercase tracking-widest cursor-pointer"
-            >
-              <RefreshCw className="w-5 h-5" />
-              Reset Total
-            </button>
         </div>
       </div>
     </div>
